@@ -176,8 +176,10 @@ const ProductDetails = () => {
             wickDownColor: '#f85149',
           });
           
+          const tzOffset = new Date().getTimezoneOffset() * 60000;
+          
           series.setData(candles.map(c => ({
-            time: Math.floor(c.timestamp / 1000) as any,
+            time: Math.floor((c.timestamp - tzOffset) / 1000) as any,
             open: c.open,
             high: c.high,
             low: c.low,
@@ -191,8 +193,10 @@ const ProductDetails = () => {
             lineWidth: 2,
           });
           
+          const tzOffset = new Date().getTimezoneOffset() * 60000;
+
           series.setData(points.map(p => ({
-            time: Math.floor(p.timestamp / 1000) as any,
+            time: Math.floor((p.timestamp - tzOffset) / 1000) as any,
             value: p.sellPrice,
           })).sort((a: any, b: any) => a.time - b.time));
           seriesRef.current = series;
@@ -275,6 +279,35 @@ const ProductDetails = () => {
               </div>
             )}
           </div>
+
+          {/* Flipper Insights */}
+          {latestStats && latestStats.buyPrice > 0 && (
+            <div className="glass-panel stat-card" style={{ borderLeft: '3px solid #e3b341' }}>
+              <div className="stat-label" style={{ color: '#e3b341', fontWeight: 600 }}>Flipper Insights</div>
+              
+              <div style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Buy Order (Cost):</span>
+                  <span>{formatCommas(latestStats.sellPrice)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Sell Offer (Revenue):</span>
+                  <span>{formatCommas(latestStats.buyPrice)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--text-secondary)' }}>Bazaar Tax (1.25%):</span>
+                  <span className="negative">-{formatCommas(latestStats.buyPrice * 0.0125)}</span>
+                </div>
+                <hr style={{ border: 'none', borderTop: '1px solid var(--border-color)', margin: '0.25rem 0' }} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 'bold' }}>
+                  <span>Net Profit / Item:</span>
+                  <span className={(latestStats.buyPrice * 0.9875 - latestStats.sellPrice) >= 0 ? 'positive' : 'negative'}>
+                    {formatCommas(latestStats.buyPrice * 0.9875 - latestStats.sellPrice)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
