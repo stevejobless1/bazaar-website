@@ -1,7 +1,8 @@
 import { ProductState, HistoryPoint, HistoryCandle } from './types';
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-console.log('[Bazaar Tracker] Connecting to API at:', API_BASE);
+// Use a relative path so that Nginx can proxy it to the internal API
+const API_BASE = '/api';
+console.log('[Bazaar Tracker] Connecting to API via internal proxy at:', API_BASE);
 
 
 export const fetchLatest = async (): Promise<ProductState[]> => {
