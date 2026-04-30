@@ -3,6 +3,10 @@ FROM node:24-alpine AS build
 
 WORKDIR /app
 
+# Accept build arguments
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Install dependencies
 COPY package*.json ./
 # Using --legacy-peer-deps or --no-frozen-lockfile if needed, 
