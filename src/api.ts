@@ -1,6 +1,8 @@
 import { ProductState, HistoryPoint, HistoryCandle } from './types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+console.log('[Bazaar Tracker] Connecting to API at:', API_BASE);
+
 
 export const fetchLatest = async (): Promise<ProductState[]> => {
   const res = await fetch(`${API_BASE}/bazaar`);
