@@ -5,6 +5,10 @@ import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles } from './api';
 import { ProductState } from './types';
 import { createChart, ColorType } from 'lightweight-charts';
 
+// --- Utilities ---
+const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
+const formatCompact = (n: number) => Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+
 // --- Components ---
 
 const Navbar = ({ products }: { products: ProductState[] }) => {
@@ -70,22 +74,22 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
           </thead>
           <tbody>
             {products.sort((a, b) => b.sellVolume - a.sellVolume).map(p => {
-              const formatNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
               const marginPct = (p.margin / p.buyPrice) * 100 || 0;
+              const totalVolume = p.sellVolume + p.buyVolume;
               
               return (
-                <tr key={p.productId} onClick={() => navigate(`/item/${p.productId}`)}>
+                <tr key={p.productId} onClick={() => navigate(`/item/${p.productId}`)} title={`Click to view details for ${p.productId}`}>
                   <td>
                     <div className="product-name">
                       {p.productId.replace(/_/g, ' ')}
                     </div>
                   </td>
-                  <td>{formatNum(p.buyPrice)} coins</td>
-                  <td>{formatNum(p.sellPrice)} coins</td>
-                  <td className={p.margin >= 0 ? 'positive' : 'negative'}>
-                    {formatNum(p.margin)} ({marginPct.toFixed(2)}%)
+                  <td title={formatCommas(p.buyPrice)}>{formatCompact(p.buyPrice)} coins</td>
+                  <td title={formatCommas(p.sellPrice)}>{formatCompact(p.sellPrice)} coins</td>
+                  <td className={p.margin >= 0 ? 'positive' : 'negative'} title={formatCommas(p.margin)}>
+                    {formatCompact(p.margin)} ({marginPct.toFixed(2)}%)
                   </td>
-                  <td>{formatNum(p.sellVolume + p.buyVolume)}</td>
+                  <td title={formatCommas(totalVolume)}>{formatCompact(totalVolume)}</td>
                 </tr>
               );
             })}
@@ -239,22 +243,33 @@ const ProductDetails = () => {
         <div className="stats-sidebar">
           <div className="glass-panel stat-card">
             <div className="stat-label">Current Sell Price</div>
-            <div className="stat-value">{latestStats?.sellPrice?.toLocaleString() || '---'}</div>
-            <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Sell Volume: {latestStats?.sellVolume?.toLocaleString()}</div>
+            <div className="stat-value" title={latestStats ? formatCommas(latestStats.sellPrice) : ''}>
+              {latestStats?.sellPrice ? formatCompact(latestStats.sellPrice) : '---'}
+            </div>
+            <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+              Sell Volume: <span title={latestStats ? formatCommas(latestStats.sellVolume) : ''}>{latestStats?.sellVolume ? formatCompact(latestStats.sellVolume) : '---'}</span>
+            </div>
           </div>
           
           <div className="glass-panel stat-card">
             <div className="stat-label">Current Buy Price</div>
-            <div className="stat-value">{latestStats?.buyPrice?.toLocaleString() || '---'}</div>
-            <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Buy Volume: {latestStats?.buyVolume?.toLocaleString()}</div>
+            <div className="stat-value" title={latestStats ? formatCommas(latestStats.buyPrice) : ''}>
+              {latestStats?.buyPrice ? formatCompact(latestStats.buyPrice) : '---'}
+            </div>
+            <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+              Buy Volume: <span title={latestStats ? formatCommas(latestStats.buyVolume) : ''}>{latestStats?.buyVolume ? formatCompact(latestStats.buyVolume) : '---'}</span>
+            </div>
           </div>
 
           <div className="glass-panel stat-card">
             <div className="stat-label">Current Margin</div>
-            <div className={`stat-value ${latestStats && latestStats.margin >= 0 ? 'positive' : 'negative'}`}>
-              {latestStats?.margin?.toLocaleString() || '---'}
+            <div 
+              className={`stat-value ${latestStats && latestStats.margin >= 0 ? 'positive' : 'negative'}`}
+              title={latestStats ? formatCommas(latestStats.margin) : ''}
+            >
+              {latestStats?.margin != null ? formatCompact(latestStats.margin) : '---'}
             </div>
-            {latestStats && latestStats.buyPrice && (
+            {latestStats && latestStats.buyPrice > 0 && (
               <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
                 {((latestStats.margin / latestStats.buyPrice) * 100).toFixed(2)}% ROI
               </div>
