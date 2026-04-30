@@ -69,7 +69,7 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
             </tr>
           </thead>
           <tbody>
-            {products.sort((a, b) => b.sellVolume - a.sellVolume).slice(0, 100).map(p => {
+            {products.sort((a, b) => b.sellVolume - a.sellVolume).map(p => {
               const formatNum = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
               const marginPct = (p.margin / p.buyPrice) * 100 || 0;
               
