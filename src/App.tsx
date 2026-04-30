@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
-import { Search, Activity, ArrowUpRight, ArrowDownRight, TrendingUp } from 'lucide-react';
+import { Search, Activity } from 'lucide-react';
 import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles } from './api';
-import { ProductState, HistoryPoint, HistoryCandle } from './types';
-import { createChart, ColorType, ISeriesApi } from 'lightweight-charts';
+import { ProductState } from './types';
+import { createChart, ColorType } from 'lightweight-charts';
 
 // --- Components ---
 
