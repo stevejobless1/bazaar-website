@@ -9,6 +9,13 @@ import { createChart, ColorType } from 'lightweight-charts';
 const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 const formatCompact = (n: number) => Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
 
+// Helper to get item icons from a public repository (SkyCrypt uses Skyblock Item Textures)
+const getItemIconUrl = (productId: string) => {
+  // Common edge cases mapping can go here if needed
+  const cleanId = productId.replace(/(:[0-9]+)/g, ''); // Remove tier numbers if any
+  return `https://sky.shiiyu.moe/item/${cleanId}`;
+};
+
 // --- Components ---
 
 const Navbar = ({ products }: { products: ProductState[] }) => {
@@ -53,13 +60,40 @@ const Navbar = ({ products }: { products: ProductState[] }) => {
 
 const Home = ({ products, loading, error }: { products: ProductState[], loading: boolean, error: string | null }) => {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<'flips' | 'all'>('flips');
 
   if (loading) return <div className="loader-container"><div className="loader"></div></div>;
   if (error) return <div className="error-message">{error}</div>;
 
+  // Calculate profit metrics
+  const enrichedProducts = products.map(p => {
+    const margin = p.margin;
+    // Profit Velocity: Margin * daily volume (using min to represent actual trading throughput)
+    const velocity = margin > 0 ? margin * Math.min(p.buyVolume, p.sellVolume) : 0;
+    const marginPct = (margin / p.buyPrice) * 100 || 0;
+    return { ...p, velocity, marginPct };
+  });
+
+  const displayProducts = activeTab === 'flips' 
+    ? [...enrichedProducts].sort((a, b) => b.velocity - a.velocity).slice(0, 100) // Top 100 flips
+    : [...enrichedProducts].sort((a, b) => b.sellVolume - a.sellVolume);
+
   return (
     <div className="main-content">
-      <h2 style={{ marginBottom: '1rem' }}>Market Overview</h2>
+      <div className="tabs-container">
+        <button 
+          className={`tab ${activeTab === 'flips' ? 'active' : ''}`}
+          onClick={() => setActiveTab('flips')}
+        >
+          Top Flips
+        </button>
+        <button 
+          className={`tab ${activeTab === 'all' ? 'active' : ''}`}
+          onClick={() => setActiveTab('all')}
+        >
+          All Items
+        </button>
+      </div>
       
       <div className="glass-panel data-table-container">
         <table className="data-table">
@@ -69,27 +103,36 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
               <th>Buy Price</th>
               <th>Sell Price</th>
               <th>Margin</th>
-              <th>Volume</th>
+              {activeTab === 'flips' ? <th>Profit Velocity</th> : <th>Volume</th>}
             </tr>
           </thead>
           <tbody>
-            {products.sort((a, b) => b.sellVolume - a.sellVolume).map(p => {
-              const marginPct = (p.margin / p.buyPrice) * 100 || 0;
+            {displayProducts.map(p => {
               const totalVolume = p.sellVolume + p.buyVolume;
               
               return (
                 <tr key={p.productId} onClick={() => navigate(`/item/${p.productId}`)} title={`Click to view details for ${p.productId}`}>
                   <td>
                     <div className="product-name">
+                      <img src={getItemIconUrl(p.productId)} alt="" className="product-icon" onError={(e) => {
+                        // Fallback to a generic block if image fails to load
+                        (e.target as HTMLImageElement).src = 'https://sky.shiiyu.moe/item/STONE';
+                      }} />
                       {p.productId.replace(/_/g, ' ')}
                     </div>
                   </td>
                   <td title={formatCommas(p.buyPrice)}>{formatCompact(p.buyPrice)} coins</td>
                   <td title={formatCommas(p.sellPrice)}>{formatCompact(p.sellPrice)} coins</td>
                   <td className={p.margin >= 0 ? 'positive' : 'negative'} title={formatCommas(p.margin)}>
-                    {formatCompact(p.margin)} ({marginPct.toFixed(2)}%)
+                    {formatCompact(p.margin)} ({p.marginPct.toFixed(2)}%)
                   </td>
-                  <td title={formatCommas(totalVolume)}>{formatCompact(totalVolume)}</td>
+                  {activeTab === 'flips' ? (
+                    <td title={formatCommas(p.velocity)} style={{ color: 'var(--accent-color)', fontWeight: 600 }}>
+                      {formatCompact(p.velocity)}
+                    </td>
+                  ) : (
+                    <td title={formatCommas(totalVolume)}>{formatCompact(totalVolume)}</td>
+                  )}
                 </tr>
               );
             })}
@@ -102,7 +145,8 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
 
 const ProductDetails = () => {
   const { productId } = useParams<{ productId: string }>();
-  const [timeframe, setTimeframe] = useState<'highres' | 'hourly'>('hourly');
+  // Default to High Res for that premium Area Chart look
+  const [timeframe, setTimeframe] = useState<'highres' | 'hourly'>('highres');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -187,9 +231,11 @@ const ProductDetails = () => {
           })).sort((a: any, b: any) => a.time - b.time));
           seriesRef.current = series;
         } else {
-          const points = await fetchHistoryHighRes(productId, 1000);
-          const series = chartRef.current.addLineSeries({
-            color: '#58a6ff',
+          const points = await fetchHistoryHighRes(productId, 2000); // Fetch more for nice area chart
+          const series = chartRef.current.addAreaSeries({
+            lineColor: '#00e5ff',
+            topColor: 'rgba(0, 229, 255, 0.4)',
+            bottomColor: 'rgba(0, 229, 255, 0.0)',
             lineWidth: 2,
           });
           
@@ -217,25 +263,37 @@ const ProductDetails = () => {
     <div className="main-content">
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
         <Link to="/" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>← Back to Market</Link>
-        <h2>{productId?.replace(/_/g, ' ')}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {productId && (
+            <img 
+              src={getItemIconUrl(productId)} 
+              alt="" 
+              style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} 
+              onError={(e) => { (e.target as HTMLImageElement).src = 'https://sky.shiiyu.moe/item/STONE'; }} 
+            />
+          )}
+          <h2 style={{ fontSize: '1.8rem' }}>{productId?.replace(/_/g, ' ')}</h2>
+        </div>
       </div>
 
       <div className="detail-grid">
         <div className="glass-panel chart-container">
-          <div className="chart-header">
+          <div className="chart-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
             <div className="chart-title">Price History</div>
-            <div className="chart-controls">
+            <div className="tabs-container" style={{ marginBottom: 0, borderBottom: 'none' }}>
               <button 
-                className={`btn-toggle ${timeframe === 'highres' ? 'active' : ''}`}
+                className={`tab ${timeframe === 'highres' ? 'active' : ''}`}
                 onClick={() => setTimeframe('highres')}
+                style={{ padding: '0.25rem 1rem', fontSize: '0.85rem' }}
               >
-                High Res (Latest)
+                Recent (High-Res Area)
               </button>
               <button 
-                className={`btn-toggle ${timeframe === 'hourly' ? 'active' : ''}`}
+                className={`tab ${timeframe === 'hourly' ? 'active' : ''}`}
                 onClick={() => setTimeframe('hourly')}
+                style={{ padding: '0.25rem 1rem', fontSize: '0.85rem' }}
               >
-                Hourly Candles
+                Historical (Candles)
               </button>
             </div>
           </div>
