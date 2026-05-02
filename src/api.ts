@@ -40,3 +40,10 @@ export const fetchHistoryCandles = async (productId: string): Promise<HistoryCan
   const json = await res.json();
   return json.data || [];
 };
+
+export const fetchFusions = async (): Promise<any> => {
+  const res = await fetch('https://raw.githubusercontent.com/Campionnn/SkyShards/master/public/fusion-data.json');
+  if (!res.ok) throw new Error('Failed to fetch fusions data');
+  const json = await res.json();
+  return json.recipes || {};
+};

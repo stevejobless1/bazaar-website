@@ -24,3 +24,20 @@ export interface HistoryPoint {
   sellVolume: number;
   buyVolume: number;
 }
+
+export interface FusionRecipes {
+  [targetItem: string]: {
+    [cost: string]: string[][];
+  };
+}
+
+export interface FlipResult {
+  targetItem: string;
+  ingredients: string[];
+  cost: number;
+  revenue: number;
+  profit: number;
+  roi: number;
+  targetVolume: number;
+  ingredientVolumeMin: number;
+}

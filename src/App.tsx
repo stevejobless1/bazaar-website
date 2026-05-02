@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, Link, useNavigate, useParams } from 'react-router-dom';
-import { Search, Activity } from 'lucide-react';
+import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
+import { Search, Activity, TrendingUp } from 'lucide-react';
 import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles } from './api';
 import { ProductState } from './types';
 import { createChart, ColorType } from 'lightweight-charts';
+import Flips from './Flips';
 
 // --- Utilities ---
 const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -21,6 +22,7 @@ const getItemIconUrl = (productId: string) => {
 const Navbar = ({ products }: { products: ProductState[] }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,8 +43,26 @@ const Navbar = ({ products }: { products: ProductState[] }) => {
         <Activity size={24} color="var(--accent-color)" />
         Bazaar<span>Tracker</span>
       </Link>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: '2rem' }}>
+        <Link 
+          to="/flips" 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            textDecoration: 'none', 
+            color: location.pathname === '/flips' ? 'var(--accent-color)' : 'var(--text-secondary)',
+            fontWeight: location.pathname === '/flips' ? 600 : 500,
+            transition: 'color 0.2s'
+          }}
+        >
+          <TrendingUp size={18} />
+          Flips
+        </Link>
+      </div>
       
-      <form className="search-container" onSubmit={handleSearch}>
+      <form className="search-container" onSubmit={handleSearch} style={{ marginLeft: 'auto' }}>
         <Search className="search-icon" size={18} />
         <input 
           type="text" 
@@ -396,6 +416,7 @@ function App() {
       <Navbar products={products} />
       <Routes>
         <Route path="/" element={<Home products={products} loading={loading} error={error} />} />
+        <Route path="/flips" element={<Flips products={products} loading={loading} error={error} />} />
         <Route path="/item/:productId" element={<ProductDetails />} />
       </Routes>
     </div>
