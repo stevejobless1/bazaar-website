@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Activity, Database, HardDrive,
-  Server, CheckCircle, AlertTriangle, XCircle, TrendingUp,
+  Server, TrendingUp,
   Package, Layers, RefreshCw, Zap,
   MousePointerClick, Flame, Globe
 } from 'lucide-react';
