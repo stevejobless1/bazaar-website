@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Search, Activity, TrendingUp } from 'lucide-react';
+import { Search, Activity, TrendingUp, Radio } from 'lucide-react';
 import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles, fetchLiveOrders } from './api';
 import { ProductState, LiveOrderBook } from './types';
 import { createChart, ColorType } from 'lightweight-charts';
 import Flips from './Flips';
+import Status from './Status';
 
 // --- Utilities ---
 const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -59,6 +60,21 @@ const Navbar = ({ products }: { products: ProductState[] }) => {
         >
           <TrendingUp size={18} />
           Flips
+        </Link>
+        <Link 
+          to="/status" 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.5rem', 
+            textDecoration: 'none', 
+            color: location.pathname === '/status' ? 'var(--accent-color)' : 'var(--text-secondary)',
+            fontWeight: location.pathname === '/status' ? 600 : 500,
+            transition: 'color 0.2s'
+          }}
+        >
+          <Radio size={18} />
+          Status
         </Link>
       </div>
       
@@ -484,6 +500,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home products={products} loading={loading} error={error} />} />
         <Route path="/flips" element={<Flips products={products} loading={loading} error={error} />} />
+        <Route path="/status" element={<Status />} />
         <Route path="/item/:productId" element={<ProductDetails />} />
       </Routes>
     </div>
