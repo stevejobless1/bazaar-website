@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Search, Activity, TrendingUp } from 'lucide-react';
-import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles } from './api';
-import { ProductState } from './types';
+import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles, fetchLiveOrders } from './api';
+import { ProductState, LiveOrderBook } from './types';
 import { createChart, ColorType } from 'lightweight-charts';
 import Flips from './Flips';
 
@@ -171,6 +171,7 @@ const ProductDetails = () => {
   const [error, setError] = useState<string | null>(null);
   
   const [latestStats, setLatestStats] = useState<ProductState | null>(null);
+  const [liveOrders, setLiveOrders] = useState<LiveOrderBook | null>(null);
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<any>(null);
   const seriesRef = useRef<any>(null);
@@ -181,6 +182,15 @@ const ProductDetails = () => {
       const match = data.find(p => p.productId === productId);
       if (match) setLatestStats(match);
     }).catch(console.error);
+
+    // Fetch live order book
+    if (productId) {
+      fetchLiveOrders(productId).then(data => {
+        if (data.success) {
+          setLiveOrders({ buy_summary: data.buy_summary, sell_summary: data.sell_summary });
+        }
+      }).catch(console.error);
+    }
   }, [productId]);
 
   useEffect(() => {
@@ -388,6 +398,63 @@ const ProductDetails = () => {
           )}
         </div>
       </div>
+
+      {/* Order Book Section */}
+      {liveOrders && (
+        <div className="glass-panel" style={{ marginTop: '2rem' }}>
+          <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Activity size={20} color="var(--accent-color)" />
+            Live Order Book
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
+            {/* Buy Orders (Bids) */}
+            <div>
+              <h4 style={{ color: '#3fb950', marginBottom: '0.75rem', fontWeight: 600 }}>Top Buy Orders (Bids)</h4>
+              <table className="data-table" style={{ fontSize: '0.85rem' }}>
+                <thead>
+                  <tr>
+                    <th style={{ color: 'var(--text-secondary)' }}>Price per unit</th>
+                    <th style={{ color: 'var(--text-secondary)' }}>Amount</th>
+                    <th style={{ color: 'var(--text-secondary)' }}>Orders</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveOrders.buy_summary.slice(0, 15).map((order, i) => (
+                    <tr key={i}>
+                      <td style={{ color: '#3fb950', fontWeight: 500 }}>{formatCommas(order.pricePerUnit)}</td>
+                      <td>{formatCommas(order.amount)}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{formatCommas(order.orders)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Sell Orders (Asks) */}
+            <div>
+              <h4 style={{ color: '#f85149', marginBottom: '0.75rem', fontWeight: 600 }}>Top Sell Offers (Asks)</h4>
+              <table className="data-table" style={{ fontSize: '0.85rem' }}>
+                <thead>
+                  <tr>
+                    <th style={{ color: 'var(--text-secondary)' }}>Price per unit</th>
+                    <th style={{ color: 'var(--text-secondary)' }}>Amount</th>
+                    <th style={{ color: 'var(--text-secondary)' }}>Orders</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {liveOrders.sell_summary.slice(0, 15).map((order, i) => (
+                    <tr key={i}>
+                      <td style={{ color: '#f85149', fontWeight: 500 }}>{formatCommas(order.pricePerUnit)}</td>
+                      <td>{formatCommas(order.amount)}</td>
+                      <td style={{ color: 'var(--text-secondary)' }}>{formatCommas(order.orders)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

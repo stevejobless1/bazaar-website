@@ -4,6 +4,10 @@ export interface ProductState {
   sellVolume: number;
   buyPrice: number;
   buyVolume: number;
+  buyOrders: number;
+  sellOrders: number;
+  buyMovingWeek: number;
+  sellMovingWeek: number;
   margin: number;
   lastUpdated: number;
 }
@@ -25,6 +29,22 @@ export interface HistoryPoint {
   buyVolume: number;
 }
 
+export interface FusionData {
+  recipes: {
+    [targetItem: string]: {
+      [cost: string]: string[][];
+    };
+  };
+  shards: {
+    [shardId: string]: {
+      id: string;
+      name: string;
+      fuse_amount: number;
+      internal_id: string;
+    };
+  };
+}
+
 export interface FusionRecipes {
   [targetItem: string]: {
     [cost: string]: string[][];
@@ -40,4 +60,15 @@ export interface FlipResult {
   roi: number;
   targetVolume: number;
   ingredientVolumeMin: number;
+}
+
+export interface LiveOrder {
+  amount: number;
+  pricePerUnit: number;
+  orders: number;
+}
+
+export interface LiveOrderBook {
+  buy_summary: LiveOrder[];
+  sell_summary: LiveOrder[];
 }

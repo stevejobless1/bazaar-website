@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { ProductState, FusionRecipes, FlipResult } from './types';
+import { ProductState, FusionData, FlipResult } from './types';
 import { fetchFusions } from './api';
 
-const getItemIconUrl = (productId: string) => {
-  return `https://skyshards.com/shardIcons/${productId}.png`;
+const getItemIconUrl = (shardId: string) => {
+  return `https://raw.githubusercontent.com/Campionnn/SkyShards/master/public/shardIcons/${shardId}.png`;
 };
 
 const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -18,7 +18,7 @@ interface FlipsProps {
 type Strategy = 'insta' | 'order';
 
 const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
-  const [fusions, setFusions] = useState<FusionRecipes>({});
+  const [fusionData, setFusionData] = useState<FusionData | null>(null);
   const [fusionsLoading, setFusionsLoading] = useState(true);
   
   // Toggles for buying ingredients and selling the crafted item
@@ -28,7 +28,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   useEffect(() => {
     fetchFusions()
       .then((data) => {
-        setFusions(data);
+        setFusionData(data);
         setFusionsLoading(false);
       })
       .catch((err) => {
@@ -38,62 +38,86 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   }, []);
 
   const flipResults = useMemo(() => {
-    if (products.length === 0 || Object.keys(fusions).length === 0) return [];
+    if (products.length === 0 || !fusionData || !fusionData.recipes || !fusionData.shards) return [];
 
-    const results: FlipResult[] = [];
+    const results: (FlipResult & { targetName: string; ingredientNames: string[]; fillVolume: number; targetFillVolume: number })[] = [];
     const productMap = new Map(products.map(p => [p.productId, p]));
 
-    for (const [targetItem, recipesByCost] of Object.entries(fusions)) {
-      // recipesByCost is like { "2": [["C4", "U1"], ...] }
+    for (const [targetItem, recipesByCost] of Object.entries(fusionData.recipes)) {
+      const targetShard = fusionData.shards[targetItem];
+      if (!targetShard) continue;
+      
+      const targetProd = productMap.get(targetShard.internal_id);
+      if (!targetProd) continue;
+
       for (const [, recipes] of Object.entries(recipesByCost as { [key: string]: string[][] })) {
-
-
         for (const recipe of recipes) {
           let totalCost = 0;
           let validRecipe = true;
           let minVol = Infinity;
+          let minFillVol = Infinity;
+          const ingredientNames: string[] = [];
 
           for (const ingredient of recipe) {
-            const prod = productMap.get(ingredient);
+            const ingShard = fusionData.shards[ingredient];
+            if (!ingShard) {
+              validRecipe = false;
+              break;
+            }
+            ingredientNames.push(ingShard.name);
+            const prod = productMap.get(ingShard.internal_id);
             if (!prod) {
               validRecipe = false;
               break;
             }
-            // If we Insta-Buy ingredients, we pay the sellPrice (the lowest bin / sell offer)
-            // If we use Buy Orders, we pay the buyPrice (the highest buy order)
-            const price = buyStrategy === 'insta' ? prod.sellPrice : prod.buyPrice;
-            totalCost += price;
             
-            // Track minimum volume to ensure liquidity
+            // Insta-Buy = pay the lowest sell offer (sellPrice in our code logic... wait, Hypixel API: 
+            // In our api.ts: sellPrice is data.sellPrice, buyPrice is data.buyPrice
+            // Actually, Hypixel API:
+            // buyPrice (Quick Status) is the highest buy order
+            // sellPrice (Quick Status) is the lowest sell offer
+            const price = buyStrategy === 'insta' ? prod.sellPrice : prod.buyPrice;
+            totalCost += (price * ingShard.fuse_amount);
+            
+            // Liquidity: If Insta-Buying, we rely on Sell Offers (sellVolume). 
+            // If Buy Order, we rely on people Insta-Selling to us (sellMovingWeek).
             const vol = buyStrategy === 'insta' ? prod.sellVolume : prod.buyVolume;
+            const fillVol = buyStrategy === 'insta' ? prod.sellVolume : prod.sellMovingWeek;
             if (vol < minVol) minVol = vol;
+            if (fillVol < minFillVol) minFillVol = fillVol;
           }
 
           if (!validRecipe) continue;
 
-          const targetProd = productMap.get(targetItem);
-          if (!targetProd) continue;
-
-          // If we Insta-Sell the crafted item, we get the buyPrice (sell to highest buy order)
-          // If we use Sell Offers, we get the sellPrice (list at lowest sell offer)
+          // If Insta-Selling, we get the highest buy order (buyPrice)
+          // If Sell Offer, we get the lowest sell offer (sellPrice)
           let revenue = sellStrategy === 'insta' ? targetProd.buyPrice : targetProd.sellPrice;
-          
-          // Deduct 1.25% Bazaar Tax when selling
-          revenue = revenue * 0.9875;
+          revenue = revenue * 0.9875; // Deduct 1.25% Bazaar Tax
 
           const profit = revenue - totalCost;
           const roi = totalCost > 0 ? (profit / totalCost) * 100 : 0;
+          
           const targetVolume = sellStrategy === 'insta' ? targetProd.buyVolume : targetProd.sellVolume;
+          // If Insta-Selling, we rely on Buy Orders (buyVolume)
+          // If Sell Offer, we rely on people Insta-Buying from us (buyMovingWeek)
+          const targetFillVolume = sellStrategy === 'insta' ? targetProd.buyVolume : targetProd.buyMovingWeek;
+
+          // Filter out flips that are completely illiquid
+          if (minFillVol < 10 || targetFillVolume < 10) continue;
 
           results.push({
             targetItem,
+            targetName: targetShard.name,
             ingredients: recipe,
+            ingredientNames,
             cost: totalCost,
             revenue,
             profit,
             roi,
             targetVolume,
-            ingredientVolumeMin: minVol
+            ingredientVolumeMin: minVol,
+            fillVolume: minFillVol,
+            targetFillVolume: targetFillVolume
           });
         }
       }
@@ -101,7 +125,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
 
     // Sort by most profitable
     return results.sort((a, b) => b.profit - a.profit).slice(0, 20);
-  }, [products, fusions, buyStrategy, sellStrategy]);
+  }, [products, fusionData, buyStrategy, sellStrategy]);
 
   if (loading || fusionsLoading) {
     return <div className="loader-container"><div className="loader"></div></div>;
@@ -116,7 +140,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
       <div className="chart-header" style={{ marginBottom: '2rem' }}>
         <div>
           <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Bazaar Flips Dashboard</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Live Top 20 fusion flips using real-time market data.</p>
+          <p style={{ color: 'var(--text-secondary)' }}>Live Top 20 fusion flips using real-time market data. Automatically filtered by liquidity (fillable volume).</p>
         </div>
       </div>
 
@@ -168,7 +192,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
               <th>Revenue (After Tax)</th>
               <th>Profit</th>
               <th>ROI</th>
-              <th>Liquidity</th>
+              <th>Liquidity (Fillable)</th>
             </tr>
           </thead>
           <tbody>
@@ -180,11 +204,11 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                       <img 
                         key={i}
                         src={getItemIconUrl(ing)} 
-                        alt={ing}
+                        alt={flip.ingredientNames[i]}
                         className="product-icon"
-                        title={ing}
+                        title={flip.ingredientNames[i]}
                         style={{ width: '24px', height: '24px' }}
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://sky.shiiyu.moe/item/STONE'; }}
+                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://sky.shiiyu.moe/item/STONE'; }}
                       />
                     ))}
                   </div>
@@ -193,11 +217,12 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                   <div className="product-name">
                     <img 
                       src={getItemIconUrl(flip.targetItem)} 
-                      alt={flip.targetItem} 
+                      alt={flip.targetName} 
                       className="product-icon"
-                      onError={(e) => { (e.target as HTMLImageElement).src = 'https://sky.shiiyu.moe/item/STONE'; }}
+                      title={flip.targetName}
+                      onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://sky.shiiyu.moe/item/STONE'; }}
                     />
-                    {flip.targetItem}
+                    {flip.targetName}
                   </div>
                 </td>
                 <td title={formatCommas(flip.cost)}>{formatCompact(flip.cost)}</td>
@@ -210,8 +235,8 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                 </td>
                 <td>
                   <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span title={formatCommas(flip.ingredientVolumeMin)}>Ing. Vol: {formatCompact(flip.ingredientVolumeMin)}</span>
-                    <span title={formatCommas(flip.targetVolume)}>Tar. Vol: {formatCompact(flip.targetVolume)}</span>
+                    <span title={formatCommas(flip.fillVolume)}>Ing. Fills: {formatCompact(flip.fillVolume)}</span>
+                    <span title={formatCommas(flip.targetFillVolume)}>Tar. Fills: {formatCompact(flip.targetFillVolume)}</span>
                   </div>
                 </td>
               </tr>
@@ -219,7 +244,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
             {flipResults.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
-                  No profitable flips found with the current strategies or missing data.
+                  No profitable or liquid flips found with the current strategies.
                 </td>
               </tr>
             )}

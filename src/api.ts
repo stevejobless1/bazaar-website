@@ -16,6 +16,10 @@ export const fetchLatest = async (): Promise<ProductState[]> => {
     sellVolume: data.sellVolume,
     buyPrice: data.buyPrice,
     buyVolume: data.buyVolume,
+    buyOrders: data.buyOrders || 0,
+    sellOrders: data.sellOrders || 0,
+    buyMovingWeek: data.buyMovingWeek || 0,
+    sellMovingWeek: data.sellMovingWeek || 0,
     margin: data.buyPrice - data.sellPrice,
     lastUpdated: data.timestamp
   }));
@@ -45,5 +49,11 @@ export const fetchFusions = async (): Promise<any> => {
   const res = await fetch('https://raw.githubusercontent.com/Campionnn/SkyShards/master/public/fusion-data.json');
   if (!res.ok) throw new Error('Failed to fetch fusions data');
   const json = await res.json();
-  return json.recipes || {};
+  return json || { recipes: {}, shards: {} };
+};
+
+export const fetchLiveOrders = async (productId: string): Promise<any> => {
+  const res = await fetch(`${API_BASE}/bazaar/orders/${productId}`);
+  if (!res.ok) throw new Error('Failed to fetch live orders');
+  return await res.json();
 };
