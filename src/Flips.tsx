@@ -6,8 +6,12 @@ const getItemIconUrl = (shardId: string) => {
   return `https://raw.githubusercontent.com/Campionnn/SkyShards/master/public/shardIcons/${shardId}.png`;
 };
 
-const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
-const formatCompact = (n: number) => Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+
+const formatCompact = (n: number) => {
+  if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+  if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toFixed(0);
+};
 
 interface FlipsProps {
   products: ProductState[];
@@ -22,8 +26,9 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   const [fusionsLoading, setFusionsLoading] = useState(true);
   
   // Toggles for buying ingredients and selling the crafted item
+  // Default to Instabuy -> Sell Order as per user preference
   const [buyStrategy, setBuyStrategy] = useState<Strategy>('insta');
-  const [sellStrategy, setSellStrategy] = useState<Strategy>('insta');
+  const [sellStrategy, setSellStrategy] = useState<Strategy>('order');
 
   useEffect(() => {
     fetchFusions()
@@ -40,91 +45,158 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   const flipResults = useMemo(() => {
     if (products.length === 0 || !fusionData || !fusionData.recipes || !fusionData.shards) return [];
 
-    const results: (FlipResult & { targetName: string; ingredientNames: string[]; fillVolume: number; targetFillVolume: number })[] = [];
     const productMap = new Map(products.map(p => [p.productId, p]));
+    const shards = fusionData.shards;
+    const recipesMap = fusionData.recipes;
 
-    for (const [targetItem, recipesByCost] of Object.entries(fusionData.recipes)) {
-      const targetShard = fusionData.shards[targetItem];
+    // 1. Calculate Effective Prices (Recursive)
+    // Map of Shard ID -> { price: number, source: 'bazaar' | 'craft' }
+    const effectivePrices = new Map<string, { price: number; source: 'bazaar' | 'craft' }>();
+
+    // Initialize with Bazaar prices
+    for (const [shardId, shard] of Object.entries(shards)) {
+      const prod = productMap.get(shard.internal_id);
+      if (prod) {
+        // Price logic: Insta-Buy = sellPrice, Buy Order = buyPrice
+        const price = buyStrategy === 'insta' ? prod.sellPrice : prod.buyPrice;
+        effectivePrices.set(shardId, { price, source: 'bazaar' });
+      } else {
+        effectivePrices.set(shardId, { price: Infinity, source: 'bazaar' });
+      }
+    }
+
+    // Iterate to propagate costs (Bellman-Ford style)
+    // 10 passes is more than enough for the depth of fusion trees
+    for (let i = 0; i < 10; i++) {
+      let changed = false;
+      for (const [targetId, recipesByQty] of Object.entries(recipesMap)) {
+        for (const [qtyStr, recipes] of Object.entries(recipesByQty as Record<string, string[][]>)) {
+          const outputQuantity = parseInt(qtyStr);
+          for (const recipe of recipes) {
+            let craftCost = 0;
+            let validRecipe = true;
+            for (const ingId of recipe) {
+              const ingData = effectivePrices.get(ingId);
+              const ingShard = shards[ingId];
+              if (!ingData || ingData.price === Infinity || !ingShard) {
+                validRecipe = false;
+                break;
+              }
+              craftCost += ingData.price * ingShard.fuse_amount;
+            }
+
+            if (validRecipe) {
+              const unitCraftCost = craftCost / outputQuantity;
+              const current = effectivePrices.get(targetId);
+              // If crafting is cheaper (with a small epsilon for floating point), update
+              if (!current || unitCraftCost < current.price - 0.01) {
+                effectivePrices.set(targetId, { price: unitCraftCost, source: 'craft' });
+                changed = true;
+              }
+            }
+          }
+        }
+      }
+      if (!changed) break;
+    }
+
+    // 2. Generate Flip Results using Effective Prices
+    const results: (FlipResult & { 
+      targetName: string; 
+      ingredientNames: string[]; 
+      ingredientSources: ('bazaar' | 'craft')[];
+      salesPerHour: number; 
+      profitPerShard: number;
+      outputQuantity: number;
+    })[] = [];
+
+    for (const [targetItem, recipesByQty] of Object.entries(recipesMap)) {
+      const targetShard = shards[targetItem];
       if (!targetShard) continue;
       
       const targetProd = productMap.get(targetShard.internal_id);
       if (!targetProd) continue;
 
-      for (const [, recipes] of Object.entries(recipesByCost as { [key: string]: string[][] })) {
+      for (const [qtyStr, recipes] of Object.entries(recipesByQty as Record<string, string[][]>)) {
+        const outputQuantity = parseInt(qtyStr);
+        
         for (const recipe of recipes) {
           let totalCost = 0;
           let validRecipe = true;
-          let minVol = Infinity;
           let minFillVol = Infinity;
           const ingredientNames: string[] = [];
+          const ingredientSources: ('bazaar' | 'craft')[] = [];
 
           for (const ingredient of recipe) {
-            const ingShard = fusionData.shards[ingredient];
-            if (!ingShard) {
+            const ingShard = shards[ingredient];
+            const ingData = effectivePrices.get(ingredient);
+            if (!ingShard || !ingData || ingData.price === Infinity) {
               validRecipe = false;
               break;
             }
+            
             ingredientNames.push(ingShard.name);
+            ingredientSources.push(ingData.source);
+            
             const prod = productMap.get(ingShard.internal_id);
-            if (!prod) {
-              validRecipe = false;
-              break;
+            // Even if we craft it, we check liquidity of the "base" shard for safety
+            // but primarily we care about the cost we calculated
+            totalCost += (ingData.price * ingShard.fuse_amount);
+            
+            if (prod) {
+              const fillVol = buyStrategy === 'insta' ? prod.sellVolume : prod.sellMovingWeek;
+              if (fillVol < minFillVol) minFillVol = fillVol;
             }
-            
-            // Insta-Buy = pay the lowest sell offer (sellPrice in our code logic... wait, Hypixel API: 
-            // In our api.ts: sellPrice is data.sellPrice, buyPrice is data.buyPrice
-            // Actually, Hypixel API:
-            // buyPrice (Quick Status) is the highest buy order
-            // sellPrice (Quick Status) is the lowest sell offer
-            const price = buyStrategy === 'insta' ? prod.sellPrice : prod.buyPrice;
-            totalCost += (price * ingShard.fuse_amount);
-            
-            // Liquidity: If Insta-Buying, we rely on Sell Offers (sellVolume). 
-            // If Buy Order, we rely on people Insta-Selling to us (sellMovingWeek).
-            const vol = buyStrategy === 'insta' ? prod.sellVolume : prod.buyVolume;
-            const fillVol = buyStrategy === 'insta' ? prod.sellVolume : prod.sellMovingWeek;
-            if (vol < minVol) minVol = vol;
-            if (fillVol < minFillVol) minFillVol = fillVol;
           }
 
           if (!validRecipe) continue;
 
-          // If Insta-Selling, we get the highest buy order (buyPrice)
-          // If Sell Offer, we get the lowest sell offer (sellPrice)
-          let revenue = sellStrategy === 'insta' ? targetProd.buyPrice : targetProd.sellPrice;
-          revenue = revenue * 0.9875; // Deduct 1.25% Bazaar Tax
+          // Revenue: selling the finished product
+          let unitRevenue = sellStrategy === 'insta' ? targetProd.buyPrice : targetProd.sellPrice;
+          unitRevenue = unitRevenue * 0.9875; // 1.25% Tax
 
-          const profit = revenue - totalCost;
-          const roi = totalCost > 0 ? (profit / totalCost) * 100 : 0;
+          const totalRevenue = unitRevenue * outputQuantity;
+          const totalProfit = totalRevenue - totalCost;
+          const profitPerShard = totalProfit / outputQuantity;
+          const roi = totalCost > 0 ? (totalProfit / totalCost) * 100 : 0;
           
-          const targetVolume = sellStrategy === 'insta' ? targetProd.buyVolume : targetProd.sellVolume;
-          // If Insta-Selling, we rely on Buy Orders (buyVolume)
-          // If Sell Offer, we rely on people Insta-Buying from us (buyMovingWeek)
           const targetFillVolume = sellStrategy === 'insta' ? targetProd.buyVolume : targetProd.buyMovingWeek;
+          const salesPerHour = targetProd.buyMovingWeek / 168;
 
-          // Filter out flips that are completely illiquid
-          if (minFillVol < 10 || targetFillVolume < 10) continue;
+          // Filter illiquid targets
+          if (targetFillVolume < 1) continue;
 
           results.push({
             targetItem,
             targetName: targetShard.name,
             ingredients: recipe,
             ingredientNames,
+            ingredientSources,
             cost: totalCost,
-            revenue,
-            profit,
+            revenue: totalRevenue,
+            profit: totalProfit,
+            profitPerShard,
             roi,
-            targetVolume,
-            ingredientVolumeMin: minVol,
-            fillVolume: minFillVol,
-            targetFillVolume: targetFillVolume
+            targetVolume: targetProd.buyVolume,
+            ingredientVolumeMin: minFillVol,
+            salesPerHour,
+            outputQuantity
           });
         }
       }
     }
 
-    // Sort by most profitable
-    return results.sort((a, b) => b.profit - a.profit).slice(0, 20);
+    // Group by target shard to only show the best recipe for each
+    const bestFlipsMap = new Map<string, typeof results[0]>();
+    for (const res of results) {
+      const key = res.targetItem;
+      const existing = bestFlipsMap.get(key);
+      if (!existing || res.profitPerShard > existing.profitPerShard) {
+        bestFlipsMap.set(key, res);
+      }
+    }
+
+    return Array.from(bestFlipsMap.values()).sort((a, b) => b.profitPerShard - a.profitPerShard).slice(0, 20);
   }, [products, fusionData, buyStrategy, sellStrategy]);
 
   if (loading || fusionsLoading) {
@@ -139,45 +211,27 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
     <div className="main-content">
       <div className="chart-header" style={{ marginBottom: '2rem' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Bazaar Flips Dashboard</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Live Top 20 fusion flips using real-time market data. Automatically filtered by liquidity (fillable volume).</p>
+          <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>Fusion Flip Rankings</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>
+            Method: {buyStrategy === 'insta' ? 'Instabuy' : 'Buy Order'} → {sellStrategy === 'insta' ? 'Instasell' : 'Sell Order'}
+          </p>
         </div>
       </div>
 
-      <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
+      <div className="glass-panel" style={{ padding: '1.5rem', marginBottom: '2rem', display: 'flex', gap: '2rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: '250px' }}>
           <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase' }}>Buy Ingredients</h3>
           <div className="tabs-container" style={{ borderBottom: 'none', marginBottom: 0 }}>
-            <button 
-              className={`tab ${buyStrategy === 'insta' ? 'active' : ''}`}
-              onClick={() => setBuyStrategy('insta')}
-            >
-              Insta-Buy
-            </button>
-            <button 
-              className={`tab ${buyStrategy === 'order' ? 'active' : ''}`}
-              onClick={() => setBuyStrategy('order')}
-            >
-              Buy Order
-            </button>
+            <button className={`tab ${buyStrategy === 'insta' ? 'active' : ''}`} onClick={() => setBuyStrategy('insta')}>Instabuy</button>
+            <button className={`tab ${buyStrategy === 'order' ? 'active' : ''}`} onClick={() => setBuyStrategy('order')}>Buy Order</button>
           </div>
         </div>
         
         <div style={{ flex: 1, minWidth: '250px' }}>
           <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem', textTransform: 'uppercase' }}>Sell Crafted Item</h3>
           <div className="tabs-container" style={{ borderBottom: 'none', marginBottom: 0 }}>
-            <button 
-              className={`tab ${sellStrategy === 'insta' ? 'active' : ''}`}
-              onClick={() => setSellStrategy('insta')}
-            >
-              Insta-Sell
-            </button>
-            <button 
-              className={`tab ${sellStrategy === 'order' ? 'active' : ''}`}
-              onClick={() => setSellStrategy('order')}
-            >
-              Sell Offer
-            </button>
+            <button className={`tab ${sellStrategy === 'insta' ? 'active' : ''}`} onClick={() => setSellStrategy('insta')}>Instasell</button>
+            <button className={`tab ${sellStrategy === 'order' ? 'active' : ''}`} onClick={() => setSellStrategy('order')}>Sell Order</button>
           </div>
         </div>
       </div>
@@ -186,32 +240,20 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Recipe</th>
-              <th>Target Shard</th>
-              <th>Cost</th>
-              <th>Revenue (After Tax)</th>
-              <th>Profit</th>
+              <th>Rank</th>
+              <th>Shard</th>
+              <th>Ingredients</th>
+              <th>Profit / Shard</th>
+              <th>Craft Cost</th>
+              <th>Sales/hr</th>
               <th>ROI</th>
-              <th>Liquidity (Fillable)</th>
             </tr>
           </thead>
           <tbody>
             {flipResults.map((flip, idx) => (
               <tr key={idx}>
-                <td>
-                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                    {flip.ingredients.map((ing, i) => (
-                      <img 
-                        key={i}
-                        src={getItemIconUrl(ing)} 
-                        alt={flip.ingredientNames[i]}
-                        className="product-icon"
-                        title={flip.ingredientNames[i]}
-                        style={{ width: '24px', height: '24px' }}
-                        onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://sky.shiiyu.moe/item/STONE'; }}
-                      />
-                    ))}
-                  </div>
+                <td style={{ width: '50px' }}>
+                  <span className="rank-badge">{idx + 1}</span>
                 </td>
                 <td>
                   <div className="product-name">
@@ -222,29 +264,66 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                       title={flip.targetName}
                       onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://sky.shiiyu.moe/item/STONE'; }}
                     />
-                    {flip.targetName}
+                    <div>
+                      <div style={{ fontWeight: 'bold' }}>{flip.targetName}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Yields: {flip.outputQuantity}</div>
+                    </div>
                   </div>
-                </td>
-                <td title={formatCommas(flip.cost)}>{formatCompact(flip.cost)}</td>
-                <td title={formatCommas(flip.revenue)}>{formatCompact(flip.revenue)}</td>
-                <td className={flip.profit >= 0 ? 'positive' : 'negative'} style={{ fontWeight: 'bold' }} title={formatCommas(flip.profit)}>
-                  {formatCompact(flip.profit)}
-                </td>
-                <td className={flip.roi >= 0 ? 'positive' : 'negative'}>
-                  {flip.roi.toFixed(2)}%
                 </td>
                 <td>
-                  <div style={{ display: 'flex', flexDirection: 'column', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                    <span title={formatCommas(flip.fillVolume)}>Ing. Fills: {formatCompact(flip.fillVolume)}</span>
-                    <span title={formatCommas(flip.targetFillVolume)}>Tar. Fills: {formatCompact(flip.targetFillVolume)}</span>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {flip.ingredients.map((ing, i) => (
+                      <div key={i} style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <img 
+                          src={getItemIconUrl(ing)} 
+                          alt={flip.ingredientNames[i]}
+                          className="product-icon"
+                          title={`${flip.ingredientNames[i]} (${flip.ingredientSources[i] === 'craft' ? 'Craft' : 'Buy'})`}
+                          style={{ width: '24px', height: '24px' }}
+                          onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = 'https://sky.shiiyu.moe/item/STONE'; }}
+                        />
+                        <span style={{ 
+                          fontSize: '0.7rem', 
+                          position: 'absolute', 
+                          bottom: '-4px', 
+                          right: '-4px',
+                          background: 'rgba(0,0,0,0.6)',
+                          borderRadius: '50%',
+                          width: '14px',
+                          height: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          border: '1px solid rgba(255,255,255,0.2)'
+                        }}>
+                          {flip.ingredientSources[i] === 'craft' ? '🔨' : '🛒'}
+                        </span>
+                      </div>
+                    ))}
                   </div>
+                </td>
+                <td className={flip.profitPerShard >= 0 ? 'positive' : 'negative'} style={{ fontWeight: 'bold' }}>
+                  {formatCompact(flip.profitPerShard)}
+                </td>
+                <td style={{ color: 'var(--text-secondary)' }}>{formatCompact(flip.cost)}</td>
+                <td>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>{flip.salesPerHour.toFixed(1)}</span>
+                    <div style={{ 
+                      width: '10px', height: '10px', borderRadius: '50%', 
+                      backgroundColor: flip.salesPerHour > 20 ? '#4ade80' : flip.salesPerHour > 5 ? '#facc15' : '#f87171' 
+                    }}></div>
+                  </div>
+                </td>
+                <td className={flip.roi >= 0 ? 'positive' : 'negative'}>
+                  {flip.roi.toFixed(1)}%
                 </td>
               </tr>
             ))}
             {flipResults.length === 0 && (
               <tr>
-                <td colSpan={7} style={{ textAlign: 'center', padding: '2rem' }}>
-                  No profitable or liquid flips found with the current strategies.
+                <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
+                  No liquid flips found. Check your API connection or try a different strategy.
                 </td>
               </tr>
             )}

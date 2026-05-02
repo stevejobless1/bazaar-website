@@ -179,7 +179,6 @@ const TableStatsRow = ({ name, rows, oldest, newest }: {
 
 const Status = () => {
   const [statusData, setStatusData] = useState<StatusData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<ServiceCheck[]>([
     { name: 'Bazaar Tracker API', url: '/api/status', status: 'checking', responseTime: null, lastChecked: null },
@@ -199,10 +198,8 @@ const Status = () => {
         setStatusData(json);
         uptimeRef.current = json.uptime.uptimeMs;
       }
-      setLoading(false);
     } catch (err: any) {
       setError(err.message);
-      setLoading(false);
     }
   };
 
