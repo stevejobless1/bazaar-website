@@ -9,7 +9,7 @@ import Status from './Status';
 
 // --- Utilities ---
 const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
-const formatCompact = (n: number) => Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
 // Helper to get item icons from a public repository (SkyCrypt uses Skyblock Item Textures)
 const getItemIconUrl = (productId: string) => {
@@ -268,7 +268,7 @@ const ProductDetails = () => {
           
           const tzOffset = new Date().getTimezoneOffset() * 60000;
           
-          series.setData(candles.map(c => ({
+          series.setData(candles.map((c: any) => ({
             time: Math.floor((c.timestamp - tzOffset) / 1000) as any,
             open: c.open,
             high: c.high,

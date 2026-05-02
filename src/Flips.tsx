@@ -7,11 +7,7 @@ const getItemIconUrl = (shardId: string) => {
 };
 
 
-const formatCompact = (n: number) => {
-  if (Math.abs(n) >= 1000000) return (n / 1000000).toFixed(2) + 'M';
-  if (Math.abs(n) >= 1000) return (n / 1000).toFixed(1) + 'K';
-  return n.toFixed(0);
-};
+const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
 interface FlipsProps {
   products: ProductState[];
@@ -163,8 +159,8 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
           const targetFillVolume = sellStrategy === 'insta' ? targetProd.buyVolume : targetProd.buyMovingWeek;
           const salesPerHour = targetProd.buyMovingWeek / 168;
 
-          // Filter illiquid targets
-          if (targetFillVolume < 1) continue;
+          // Filter illiquid targets and ingredients
+          if (targetFillVolume < 1 || minFillVol < 1) continue;
 
           results.push({
             targetItem,

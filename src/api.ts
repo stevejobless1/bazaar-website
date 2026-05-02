@@ -1,4 +1,4 @@
-import { ProductState, HistoryPoint, HistoryCandle } from './types';
+import { ProductState, HistoryPoint } from './types';
 
 // Use a relative path so that Nginx can proxy it to the internal API
 const API_BASE = '/api';
@@ -25,24 +25,32 @@ export const fetchLatest = async (): Promise<ProductState[]> => {
   }));
 };
 
-export const fetchHistoryHighRes = async (productId: string, limit: number = 1000): Promise<HistoryPoint[]> => {
-  const res = await fetch(`${API_BASE}/bazaar/history/${productId}?limit=${limit}`);
-  if (!res.ok) throw new Error('Failed to fetch high-res history');
+export const fetchHistory = async (productId: string, resolution: 'raw' | '5m' | '1h' = 'raw', limit: number = 1000): Promise<HistoryPoint[]> => {
+  const res = await fetch(`${API_BASE}/bazaar/history/${productId}?resolution=${resolution}&limit=${limit}`);
+  if (!res.ok) throw new Error(`Failed to fetch ${resolution} history`);
   const json = await res.json();
   return (json.data || []).map((p: any) => ({
     timestamp: p.timestamp,
-    sellPrice: p.sell_price,
-    buyPrice: p.buy_price,
-    sellVolume: p.sell_volume,
-    buyVolume: p.buy_volume
+    sellPrice: p.sell_price !== undefined ? p.sell_price : p.sell_close,
+    buyPrice: p.buy_price !== undefined ? p.buy_price : p.buy_close,
+    sellVolume: p.sell_volume !== undefined ? p.sell_volume : p.avg_sell_volume,
+    buyVolume: p.buy_volume !== undefined ? p.buy_volume : p.avg_buy_volume
   }));
 };
 
-export const fetchHistoryCandles = async (productId: string): Promise<HistoryCandle[]> => {
-  const res = await fetch(`${API_BASE}/bazaar/history/${productId}?hourly=true`);
-  if (!res.ok) throw new Error('Failed to fetch hourly candles');
+// Deprecated aliases (mapping to the new fetchHistory)
+export const fetchHistoryHighRes = (productId: string, limit: number = 1000) => fetchHistory(productId, 'raw', limit);
+export const fetchHistoryCandles = async (productId: string): Promise<any> => {
+  const res = await fetch(`${API_BASE}/bazaar/history/${productId}?resolution=1h`);
+  if (!res.ok) throw new Error(`Failed to fetch hourly candles`);
   const json = await res.json();
-  return json.data || [];
+  return (json.data || []).map((c: any) => ({
+    timestamp: c.timestamp,
+    open: c.buy_open, // Using buy price for candles
+    high: c.buy_high,
+    low: c.buy_low,
+    close: c.buy_close,
+  }));
 };
 
 export const fetchFusions = async (): Promise<any> => {

@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import {
   Activity, Database, BarChart3, Clock, HardDrive,
   Server, CheckCircle, AlertTriangle, XCircle, Wifi, TrendingUp,
-  Package, ShoppingCart, Layers, ArrowUpRight, RefreshCw
+  Package, ShoppingCart, Layers, ArrowUpRight, RefreshCw, Zap
 } from 'lucide-react';
+import { createChart, ColorType } from 'lightweight-charts';
 
 // --- Types ---
 interface StatusData {
@@ -15,6 +16,7 @@ interface StatusData {
     pageSize: number;
     tables: {
       prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
+      five_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       hourly_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       products: { rows: number };
       live_orders: { rows: number };
@@ -58,7 +60,7 @@ const formatBytes = (bytes: number) => {
 };
 
 const formatNumber = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-const formatCompact = (n: number) => Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(n);
+const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
 const formatUptime = (ms: number) => {
   const seconds = Math.floor(ms / 1000);
@@ -182,11 +184,15 @@ const Status = () => {
   const [error, setError] = useState<string | null>(null);
   const [services, setServices] = useState<ServiceCheck[]>([
     { name: 'Bazaar Tracker API', url: '/api/status', status: 'checking', responseTime: null, lastChecked: null },
-    { name: 'Bazaar Data Feed', url: '/api/bazaar', status: 'checking', responseTime: null, lastChecked: null },
+    { name: 'Bazaar Data Feed', url: '/health', status: 'checking', responseTime: null, lastChecked: null },
     { name: 'Hypixel API', url: 'https://api.hypixel.net/v2/skyblock/bazaar', status: 'checking', responseTime: null, lastChecked: null },
   ]);
   const [uptimeDisplay, setUptimeDisplay] = useState('');
+  const [responseHistory, setResponseHistory] = useState<{ time: number; value: number }[]>([]);
   const uptimeRef = useRef<number>(0);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<any>(null);
+  const seriesRef = useRef<any>(null);
 
   // Fetch status data
   const fetchStatus = async () => {
@@ -248,13 +254,78 @@ const Status = () => {
     fetchStatus();
     services.forEach((_, i) => checkService(i));
 
-    // Refresh status every 30s
+    // Refresh status every 60s (slower as requested)
     const interval = setInterval(() => {
       fetchStatus();
       services.forEach((_, i) => checkService(i));
-    }, 30000);
+    }, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Update response history when services change
+  useEffect(() => {
+    const mainApi = services.find(s => s.name === 'Bazaar Tracker API');
+    if (mainApi && mainApi.responseTime !== null) {
+      setResponseHistory(prev => {
+        const newData = [...prev, { time: Math.floor(Date.now() / 1000), value: mainApi.responseTime! }];
+        return newData.slice(-50); // Keep last 50 points
+      });
+    }
+  }, [services]);
+
+  // Chart initialization
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
+
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: 'transparent' },
+        textColor: '#8b949e',
+      },
+      grid: {
+        vertLines: { color: 'rgba(48, 54, 61, 0.5)' },
+        horzLines: { color: 'rgba(48, 54, 61, 0.5)' },
+      },
+      timeScale: {
+        timeVisible: true,
+        secondsVisible: true,
+      },
+      width: chartContainerRef.current.clientWidth,
+      height: 200,
+    });
+
+    const series = chart.addAreaSeries({
+      lineColor: '#00e5ff',
+      topColor: 'rgba(0, 229, 255, 0.3)',
+      bottomColor: 'rgba(0, 229, 255, 0.0)',
+      lineWidth: 2,
+    });
+
+    chartRef.current = chart;
+    seriesRef.current = series;
+
+    const handleResize = () => {
+      if (chartContainerRef.current) {
+        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+      }
+    };
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      chart.remove();
+    };
+  }, []);
+
+  // Update chart data
+  useEffect(() => {
+    if (seriesRef.current && responseHistory.length > 0) {
+      // lightweight-charts requires unique timestamps and sorted data
+      const uniqueData = responseHistory.filter((v, i, a) => a.findIndex(t => t.time === v.time) === i);
+      seriesRef.current.setData(uniqueData);
+      chartRef.current.timeScale().fitContent();
+    }
+  }, [responseHistory]);
 
   // Live uptime ticker
   useEffect(() => {
@@ -282,7 +353,7 @@ const Status = () => {
               {anyChecking ? 'Checking Systems...' : anyOffline ? 'Partial Outage' : allOnline ? 'All Systems Operational' : 'Some Systems Degraded'}
             </h1>
             <p className="status-hero-sub">
-              Last checked {formatTimeAgo(services[0]?.lastChecked)} • Auto-refreshes every 30s
+              Last checked {formatTimeAgo(services[0]?.lastChecked)} • Auto-refreshes every 60s
             </p>
           </div>
         </div>
@@ -319,6 +390,14 @@ const Status = () => {
               </div>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* API Response Time History */}
+      <div className="status-section">
+        <h2 className="section-title"><Zap size={20} color="#00e5ff" /> Response Time History (ms)</h2>
+        <div className="glass-panel" style={{ padding: '1rem', height: '250px' }}>
+          <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
         </div>
       </div>
 
@@ -419,10 +498,16 @@ const Status = () => {
                   </thead>
                   <tbody>
                     <TableStatsRow
-                      name="prices"
+                      name="prices (20s)"
                       rows={statusData.database.tables.prices.rows}
                       oldest={statusData.database.tables.prices.oldestTimestamp}
                       newest={statusData.database.tables.prices.newestTimestamp}
+                    />
+                    <TableStatsRow
+                      name="five_min_prices"
+                      rows={statusData.database.tables.five_min_prices.rows}
+                      oldest={statusData.database.tables.five_min_prices.oldestTimestamp}
+                      newest={statusData.database.tables.five_min_prices.newestTimestamp}
                     />
                     <TableStatsRow
                       name="hourly_prices"
