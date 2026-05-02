@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  Activity, Database, BarChart3, Clock, HardDrive,
-  Server, CheckCircle, AlertTriangle, XCircle, Wifi, TrendingUp,
-  Package, ShoppingCart, Layers, ArrowUpRight, RefreshCw, Zap,
+  Activity, Database, HardDrive,
+  Server, CheckCircle, AlertTriangle, XCircle, TrendingUp,
+  Package, Layers, RefreshCw, Zap,
   MousePointerClick, Flame, Globe
 } from 'lucide-react';
 
@@ -109,21 +109,7 @@ const formatTimeAgo = (timestamp: number | null) => {
 
 // --- Components ---
 
-const StatusBadge = ({ status }: { status: ServiceCheck['status'] }) => {
-  const config = {
-    online: { icon: CheckCircle, color: '#3fb950', label: 'Operational', bg: 'rgba(63, 185, 80, 0.1)' },
-    degraded: { icon: AlertTriangle, color: '#e3b341', label: 'Degraded', bg: 'rgba(227, 179, 65, 0.1)' },
-    offline: { icon: XCircle, color: '#f85149', label: 'Offline', bg: 'rgba(248, 81, 73, 0.1)' },
-    checking: { icon: RefreshCw, color: '#8b949e', label: 'Checking...', bg: 'rgba(139, 148, 158, 0.1)' },
-  };
-  const { icon: Icon, color, label, bg } = config[status];
-  return (
-    <span className="status-badge" style={{ color, background: bg, border: `1px solid ${color}22` }}>
-      <Icon size={14} className={status === 'checking' ? 'spin-icon' : ''} />
-      {label}
-    </span>
-  );
-};
+
 
 const PulsingDot = ({ status }: { status: 'online' | 'degraded' | 'offline' | 'checking' }) => {
   const colors = { online: '#3fb950', degraded: '#e3b341', offline: '#f85149', checking: '#8b949e' };
@@ -209,25 +195,7 @@ const MetricCard = ({ icon: Icon, label, value, subValue, color, onClick, trend 
   </div>
 );
 
-const TableStatsRow = ({ name, rows, oldest, newest }: {
-  name: string; rows: number; oldest?: number | null; newest?: number | null;
-}) => (
-  <tr>
-    <td>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <Layers size={14} color="var(--accent-color)" />
-        <span style={{ fontWeight: 600 }}>{name}</span>
-      </div>
-    </td>
-    <td style={{ fontFamily: 'monospace', color: 'var(--accent-color)' }}>{formatNumber(rows)}</td>
-    <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-      {oldest ? new Date(oldest).toLocaleDateString() : '—'}
-    </td>
-    <td style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
-      {newest ? formatTimeAgo(newest) : '—'}
-    </td>
-  </tr>
-);
+
 
 // --- Main Status Page ---
 
