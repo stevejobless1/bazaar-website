@@ -31,8 +31,10 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
 
   // Zoom / Pan state
   const [domain, setDomain] = useState<[number, number] | null>(null);
+  const [priceDomain, setPriceDomain] = useState<[number, number] | null>(null);
   const isDragging = useRef(false);
   const lastMouseX = useRef<number | null>(null);
+  const lastMouseY = useRef<number | null>(null);
 
   // Measure container
   useEffect(() => {
@@ -99,12 +101,17 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
     }
 
     // Add 5% buffer to price range
+    // Calculate auto-scale range
     const priceDiff = Math.max(maxPrice - minPrice, 1);
-    minPrice = Math.max(0, minPrice - priceDiff * 0.05);
-    maxPrice = maxPrice + priceDiff * 0.05;
+    const autoMin = Math.max(0, minPrice - priceDiff * 0.05);
+    const autoMax = maxPrice + priceDiff * 0.05;
+
+    // Use manual domain if set, otherwise use auto-scale
+    const finalMinPrice = priceDomain ? priceDomain[0] : autoMin;
+    const finalMaxPrice = priceDomain ? priceDomain[1] : autoMax;
 
     const getX = (t: number) => padding.left + ((t - domainMin) / (domainMax - domainMin || 1)) * innerWidth;
-    const getY = (p: number) => padding.top + innerHeight - ((p - minPrice) / (maxPrice - minPrice || 1)) * innerHeight;
+    const getY = (p: number) => padding.top + innerHeight - ((p - finalMinPrice) / (finalMaxPrice - finalMinPrice || 1)) * innerHeight;
 
     // Split into segments based on GAP_THRESHOLD_MS
     const segments: HistoryPoint[][] = [];
@@ -153,51 +160,73 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
       areaD += segArea;
     }
 
-    return { domainMin, domainMax, minPrice, maxPrice, getX, getY, pathDSell, pathDBuy, areaD };
+    return { 
+      domainMin, domainMax, 
+      minPrice: finalMinPrice, 
+      maxPrice: finalMaxPrice, 
+      autoMin, autoMax,
+      getX, getY, 
+      pathDSell, pathDBuy, areaD 
+    };
   }, [sorted, innerWidth, innerHeight, padding, domain]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
-    if (!domain || sorted.length === 0 || innerWidth === 0) return;
+    if (!domain || sorted.length === 0 || innerWidth === 0 || !parsedData) return;
 
     const zoomFactor = e.deltaY > 0 ? 1.1 : 0.9;
-    const [minT, maxT] = domain;
-    
-    // Zoom around mouse X
     const rect = containerRef.current?.getBoundingClientRect();
     if (!rect) return;
-    
-    const mouseX = Math.max(padding.left, Math.min(e.clientX - rect.left, padding.left + innerWidth));
-    const ratio = (mouseX - padding.left) / innerWidth;
-    
-    const timeSpan = maxT - minT;
-    const mouseTime = minT + timeSpan * ratio;
-    
-    let newTimeSpan = timeSpan * zoomFactor;
-    
-    // Limits
-    const minPossibleSpan = 60 * 1000; // 1 minute min zoom
-    const maxPossibleSpan = sorted[sorted.length - 1].timestamp - sorted[0].timestamp;
-    newTimeSpan = Math.max(minPossibleSpan, Math.min(newTimeSpan, maxPossibleSpan * 1.5)); // Allow slightly zooming out past edges
-    
-    let newMinT = mouseTime - newTimeSpan * ratio;
-    let newMaxT = mouseTime + newTimeSpan * (1 - ratio);
-    
-    // Clamp to hard boundaries
-    const hardMin = sorted[0].timestamp - maxPossibleSpan * 0.1;
-    const hardMax = sorted[sorted.length - 1].timestamp + maxPossibleSpan * 0.1;
-    
-    if (newMinT < hardMin) {
-      newMinT = hardMin;
-      newMaxT = hardMin + newTimeSpan;
-    }
-    if (newMaxT > hardMax) {
-      newMaxT = hardMax;
-      newMinT = hardMax - newTimeSpan;
-    }
 
-    setDomain([newMinT, newMaxT]);
-  }, [domain, sorted, innerWidth, padding.left]);
+    if (e.altKey || e.shiftKey) {
+      // Zoom Y axis (Price)
+      const currentMin = priceDomain ? priceDomain[0] : parsedData.autoMin;
+      const currentMax = priceDomain ? priceDomain[1] : parsedData.autoMax;
+      
+      const mouseY = Math.max(padding.top, Math.min(e.clientY - rect.top, padding.top + innerHeight));
+      const ratio = 1 - (mouseY - padding.top) / innerHeight; // 0 at bottom, 1 at top
+      
+      const priceSpan = currentMax - currentMin;
+      const mousePrice = currentMin + priceSpan * ratio;
+      
+      const newPriceSpan = priceSpan * zoomFactor;
+      const newMinP = mousePrice - newPriceSpan * ratio;
+      const newMaxP = mousePrice + newPriceSpan * (1 - ratio);
+      
+      setPriceDomain([newMinP, newMaxP]);
+    } else {
+      // Zoom X axis (Time)
+      const [minT, maxT] = domain;
+      const mouseX = Math.max(padding.left, Math.min(e.clientX - rect.left, padding.left + innerWidth));
+      const ratio = (mouseX - padding.left) / innerWidth;
+      
+      const timeSpan = maxT - minT;
+      const mouseTime = minT + timeSpan * ratio;
+      
+      let newTimeSpan = timeSpan * zoomFactor;
+      
+      const minPossibleSpan = 60 * 1000;
+      const maxPossibleSpan = sorted[sorted.length - 1].timestamp - sorted[0].timestamp;
+      newTimeSpan = Math.max(minPossibleSpan, Math.min(newTimeSpan, maxPossibleSpan * 1.5));
+      
+      let newMinT = mouseTime - newTimeSpan * ratio;
+      let newMaxT = mouseTime + newTimeSpan * (1 - ratio);
+      
+      const hardMin = sorted[0].timestamp - maxPossibleSpan * 0.1;
+      const hardMax = sorted[sorted.length - 1].timestamp + maxPossibleSpan * 0.1;
+      
+      if (newMinT < hardMin) {
+        newMinT = hardMin;
+        newMaxT = hardMin + newTimeSpan;
+      }
+      if (newMaxT > hardMax) {
+        newMaxT = hardMax;
+        newMinT = hardMax - newTimeSpan;
+      }
+
+      setDomain([newMinT, newMaxT]);
+    }
+  }, [domain, priceDomain, parsedData, sorted, innerWidth, innerHeight, padding.left, padding.top]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -211,18 +240,26 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
     e.currentTarget.setPointerCapture(e.pointerId);
     isDragging.current = true;
     lastMouseX.current = e.clientX;
+    lastMouseY.current = e.clientY;
     setHover(null);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
-    if (isDragging.current && lastMouseX.current !== null && domain) {
-      const dx = e.clientX - lastMouseX.current;
+    if (isDragging.current && lastMouseX.current !== null && domain && parsedData) {
+      const dx = e.clientX - lastMouseX.current!;
+      const dy = e.clientY - lastMouseY.current!;
       lastMouseX.current = e.clientX;
+      lastMouseY.current = e.clientY;
       
       const timeSpan = domain[1] - domain[0];
       const timeShift = -(dx / innerWidth) * timeSpan;
-      
       setDomain([domain[0] + timeShift, domain[1] + timeShift]);
+
+      const currentMinP = priceDomain ? priceDomain[0] : parsedData.autoMin;
+      const currentMaxP = priceDomain ? priceDomain[1] : parsedData.autoMax;
+      const priceSpan = currentMaxP - currentMinP;
+      const priceShift = (dy / innerHeight) * priceSpan;
+      setPriceDomain([currentMinP + priceShift, currentMaxP + priceShift]);
     } else if (!isDragging.current && domain && innerWidth > 0 && parsedData) {
       // Hover logic
       const rect = containerRef.current?.getBoundingClientRect();
@@ -270,6 +307,12 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
     e.currentTarget.releasePointerCapture(e.pointerId);
     isDragging.current = false;
     lastMouseX.current = null;
+    lastMouseY.current = null;
+  };
+
+  const handleDoubleClick = () => {
+    setDomain(null);
+    setPriceDomain(null);
   };
 
   if (!parsedData || width === 0 || height === 0) {
@@ -286,6 +329,7 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
+      onDoubleClick={handleDoubleClick}
     >
       <svg width={width} height={height} style={{ display: 'block' }}>
         <defs>
