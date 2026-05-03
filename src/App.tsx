@@ -33,7 +33,8 @@ const Navbar = ({ products }: { products: ProductState[] }) => {
         navigate(`/item/${match.productId}`);
         setSearchTerm('');
       } else {
-        navigate(`/item/${searchTerm.toUpperCase()}`);
+        const cleanSearch = searchTerm.trim().toUpperCase().replace(/\s+/g, '_');
+        navigate(`/item/${cleanSearch}`);
       }
     }
   };

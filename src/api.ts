@@ -41,7 +41,7 @@ export const fetchHistory = async (productId: string, resolution: 'raw' | '5m' |
 // Deprecated aliases (mapping to the new fetchHistory)
 export const fetchHistoryHighRes = (productId: string, limit: number = 1000) => fetchHistory(productId, 'raw', limit);
 export const fetchHistoryCandles = async (productId: string): Promise<any> => {
-  const res = await fetch(`${API_BASE}/bazaar/history/${productId}?resolution=1h`);
+  const res = await fetch(`${API_BASE}/bazaar/history/${productId}?resolution=1h&limit=20000`);
   if (!res.ok) throw new Error(`Failed to fetch hourly candles`);
   const json = await res.json();
   return (json.data || []).map((c: any) => ({
