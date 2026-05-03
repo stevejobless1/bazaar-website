@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Search, Activity, TrendingUp, Radio } from 'lucide-react';
-import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles, fetchLiveOrders } from './api';
+import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles, fetchLiveOrders, fetchMayors } from './api';
 import { ProductState, LiveOrderBook } from './types';
 import { createChart, ColorType } from 'lightweight-charts';
 import Flips from './Flips';
@@ -292,6 +292,23 @@ const ProductDetails = () => {
             value: p.sellPrice,
           })).sort((a: any, b: any) => a.time - b.time));
           seriesRef.current = series;
+        }
+
+        // Fetch and apply mayor markers
+        if (seriesRef.current) {
+          const startTime = timeframe === 'hourly' ? Date.now() - 30 * 24 * 60 * 60 * 1000 : Date.now() - 7 * 24 * 60 * 60 * 1000;
+          const mayors = await fetchMayors(startTime, Date.now());
+          
+          const tzOffset = new Date().getTimezoneOffset() * 60000;
+          const markers = mayors.map(m => ({
+            time: Math.floor((m.timestamp - tzOffset) / 1000) as any,
+            position: 'aboveBar' as const,
+            color: '#e3b341',
+            shape: 'arrowDown' as const,
+            text: m.name,
+          }));
+          
+          seriesRef.current.setMarkers(markers);
         }
         
         chartRef.current.timeScale().fitContent();

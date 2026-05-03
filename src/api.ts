@@ -65,3 +65,10 @@ export const fetchLiveOrders = async (productId: string): Promise<any> => {
   if (!res.ok) throw new Error('Failed to fetch live orders');
   return await res.json();
 };
+
+export const fetchMayors = async (start: number, end: number): Promise<{ timestamp: number, name: string }[]> => {
+  const res = await fetch(`${API_BASE}/mayors?start=${start}&end=${end}`);
+  if (!res.ok) throw new Error('Failed to fetch mayors');
+  const json = await res.json();
+  return json.data || [];
+};
