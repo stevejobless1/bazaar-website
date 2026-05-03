@@ -27,6 +27,7 @@ interface StatusData {
       ten_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       thirty_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       hourly_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
+      daily_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       products: { rows: number };
       live_orders: { rows: number };
     };
@@ -455,8 +456,14 @@ const Status = () => {
                       <tr>
                         <td><Layers size={12} /> Low-Res</td>
                         <td>1h (Archive)</td>
-                        <td>Forever</td>
+                        <td>8 Weeks</td>
                         <td>{formatNumber(statusData.database.tables.hourly_prices.rows)}</td>
+                      </tr>
+                      <tr>
+                        <td><Layers size={12} /> Daily</td>
+                        <td>1d (Archive)</td>
+                        <td>Forever</td>
+                        <td>{formatNumber(statusData.database.tables.daily_prices?.rows || 0)}</td>
                       </tr>
                     </tbody>
                   </table>

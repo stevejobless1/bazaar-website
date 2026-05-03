@@ -72,5 +72,8 @@ export const fetchMayors = async (start: number, end: number): Promise<{ timesta
   const res = await fetch(`${API_BASE}/mayors?start=${start}&end=${end}`);
   if (!res.ok) throw new Error('Failed to fetch mayors');
   const json = await res.json();
-  return json.data || [];
+  return (json.data || []).map((m: any) => ({
+    timestamp: m.start_date,
+    name: m.name
+  }));
 };
