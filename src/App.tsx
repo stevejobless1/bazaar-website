@@ -471,7 +471,7 @@ const ProductDetails = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {liveOrders.buy_summary.slice(0, 15).map((order, i) => (
+                  {liveOrders.buy_summary.slice(0, 15).map((order) => (
                     <tr key={`${order.pricePerUnit}-${order.amount}`} className="flash-update">
                       <td style={{ color: '#3fb950', fontWeight: 500 }}>{formatCommas(order.pricePerUnit)}</td>
                       <td>{formatCommas(order.amount)}</td>
@@ -494,7 +494,7 @@ const ProductDetails = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {liveOrders.sell_summary.slice(0, 15).map((order, i) => (
+                  {liveOrders.sell_summary.slice(0, 15).map((order) => (
                     <tr key={`${order.pricePerUnit}-${order.amount}`} className="flash-update">
                       <td style={{ color: '#f85149', fontWeight: 500 }}>{formatCommas(order.pricePerUnit)}</td>
                       <td>{formatCommas(order.amount)}</td>
