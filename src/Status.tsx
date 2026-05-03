@@ -24,6 +24,7 @@ interface StatusData {
       prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       one_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       five_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
+      ten_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       thirty_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       hourly_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       products: { rows: number };
@@ -402,7 +403,7 @@ const Status = () => {
                   </div>
                   <div className="db-meta">
                     <span className="db-meta-label">Data Retention</span>
-                    <span className="db-meta-value">90 Days</span>
+                    <span className="db-meta-value">Multi-Tier</span>
                   </div>
                   <div className="db-meta">
                     <span className="db-meta-label">Page Size</span>
@@ -414,35 +415,47 @@ const Status = () => {
                    <table className="status-table">
                     <thead>
                       <tr>
-                        <th>Layer</th>
+                        <th>Tier</th>
                         <th>Resolution</th>
+                        <th>Retention</th>
                         <th>Rows</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr>
-                        <td><Layers size={12} /> Hot</td>
-                        <td>20s (Live)</td>
+                        <td><Layers size={12} /> Real-time</td>
+                        <td>20s (Raw)</td>
+                        <td>1 Day</td>
                         <td>{formatNumber(statusData.database.tables.prices.rows)}</td>
                       </tr>
                       <tr>
-                        <td><Layers size={12} /> Warm</td>
-                        <td>1m (24h)</td>
+                        <td><Layers size={12} /> High-Res</td>
+                        <td>1m (Agg)</td>
+                        <td>3 Days</td>
                         <td>{formatNumber(statusData.database.tables.one_min_prices.rows)}</td>
                       </tr>
                       <tr>
-                        <td><Layers size={12} /> Warm</td>
-                        <td>5m (3d)</td>
+                        <td><Layers size={12} /> High-Res</td>
+                        <td>5m (Agg)</td>
+                        <td>1 Week</td>
                         <td>{formatNumber(statusData.database.tables.five_min_prices.rows)}</td>
                       </tr>
                       <tr>
-                        <td><Layers size={12} /> Cold</td>
-                        <td>30m (7d)</td>
+                        <td><Layers size={12} /> Mid-Res</td>
+                        <td>10m (Agg)</td>
+                        <td>2 Weeks</td>
+                        <td>{formatNumber(statusData.database.tables.ten_min_prices.rows)}</td>
+                      </tr>
+                      <tr>
+                        <td><Layers size={12} /> Mid-Res</td>
+                        <td>30m (Agg)</td>
+                        <td>4 Weeks</td>
                         <td>{formatNumber(statusData.database.tables.thirty_min_prices.rows)}</td>
                       </tr>
                       <tr>
-                        <td><Layers size={12} /> Cold</td>
-                        <td>1h (90d)</td>
+                        <td><Layers size={12} /> Low-Res</td>
+                        <td>1h (Archive)</td>
+                        <td>Forever</td>
                         <td>{formatNumber(statusData.database.tables.hourly_prices.rows)}</td>
                       </tr>
                     </tbody>
