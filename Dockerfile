@@ -15,7 +15,7 @@ RUN npm install
 
 # Build the app
 COPY . .
-RUN npm run build
+RUN export NODE_OPTIONS=--max-old-space-size=2048 && npm run build
 
 # Production stage
 FROM nginx:stable-alpine
