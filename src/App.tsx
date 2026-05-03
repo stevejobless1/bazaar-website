@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Search, Activity, TrendingUp, Radio } from 'lucide-react';
 import { fetchLatest, fetchUnifiedHistory, fetchLiveOrders, fetchMayors } from './api';
-import { ProductState, LiveOrderBook } from './types';
-import { createChart, ColorType } from 'lightweight-charts';
+import { ProductState, LiveOrderBook, HistoryPoint } from './types';
+import PriceChart from './PriceChart';
 import Flips from './Flips';
 import Status from './Status';
 
@@ -187,9 +187,8 @@ const ProductDetails = () => {
   
   const [latestStats, setLatestStats] = useState<ProductState | null>(null);
   const [liveOrders, setLiveOrders] = useState<LiveOrderBook | null>(null);
-  const chartContainerRef = useRef<HTMLDivElement>(null);
-  const chartRef = useRef<any>(null);
-  const seriesRef = useRef<any>(null);
+  const [historyPoints, setHistoryPoints] = useState<HistoryPoint[]>([]);
+  const [mayors, setMayors] = useState<{ timestamp: number, name: string }[]>([]);
 
   useEffect(() => {
     // Fetch latest stats for the side panel
@@ -208,87 +207,22 @@ const ProductDetails = () => {
     }
   }, [productId]);
 
-  useEffect(() => {
-    if (!chartContainerRef.current) return;
-
-    // Initialize chart
-    const chart = createChart(chartContainerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: '#8b949e',
-      },
-      grid: {
-        vertLines: { color: 'rgba(48, 54, 61, 0.5)' },
-        horzLines: { color: 'rgba(48, 54, 61, 0.5)' },
-      },
-      timeScale: {
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      width: chartContainerRef.current.clientWidth,
-      height: 500,
-    });
-    
-    chartRef.current = chart;
-
-    const handleResize = () => {
-      if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
-      }
-    };
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      chart.remove();
-    };
-  }, []);
 
   useEffect(() => {
-    if (!productId || !chartRef.current) return;
+    if (!productId) return;
     
     const loadData = async (isRefresh = false) => {
       if (!isRefresh) setLoading(true);
       setError(null);
       try {
-        if (!isRefresh && seriesRef.current) {
-          chartRef.current.removeSeries(seriesRef.current);
-        }
-
         const points = await fetchUnifiedHistory(productId);
-        if (!seriesRef.current || !isRefresh) {
-          const series = chartRef.current.addAreaSeries({
-            lineColor: '#00e5ff',
-            topColor: 'rgba(0, 229, 255, 0.4)',
-            bottomColor: 'rgba(0, 229, 255, 0.0)',
-            lineWidth: 2,
-          });
-          seriesRef.current = series;
-        }
+        setHistoryPoints(points);
         
-        const tzOffset = new Date().getTimezoneOffset() * 60000;
-        seriesRef.current.setData(points.map(p => ({
-          time: Math.floor((p.timestamp - tzOffset) / 1000) as any,
-          value: p.sellPrice,
-        })).sort((a: any, b: any) => a.time - b.time));
-
-        // Fetch and apply mayor markers across the full visible range
-        if (seriesRef.current && points.length > 0) {
+        if (points.length > 0) {
           const startTime = points[0].timestamp;
-          const mayors = await fetchMayors(startTime, Date.now());
-          
-          const markers = mayors.map(m => ({
-            time: Math.floor((m.timestamp - tzOffset) / 1000) as any,
-            position: 'aboveBar' as const,
-            color: '#e3b341',
-            shape: 'arrowDown' as const,
-            text: m.name,
-          }));
-          
-          seriesRef.current.setMarkers(markers);
+          const mayorsData = await fetchMayors(startTime, Date.now());
+          setMayors(mayorsData);
         }
-        
-        if (!isRefresh) chartRef.current.timeScale().fitContent();
 
         // Also refresh the side panel stats and orders
         fetchLatest().then(data => {
@@ -336,11 +270,13 @@ const ProductDetails = () => {
         <div className="glass-panel chart-container">
           <div className="chart-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
             <div className="chart-title">Price History</div>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Unified timeline — resolution decreases with age</div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Unified continuous linear timeline</div>
           </div>
           {loading && <div className="loader-container" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 14, 20, 0.5)', zIndex: 10 }}><div className="loader"></div></div>}
           {error && <div className="error-message">{error}</div>}
-          <div ref={chartContainerRef} style={{ width: '100%', height: '100%' }} />
+          <div style={{ width: '100%', height: '500px' }}>
+            {!loading && !error && historyPoints.length > 0 && <PriceChart data={historyPoints} mayors={mayors} />}
+          </div>
         </div>
 
         <div className="stats-sidebar">
