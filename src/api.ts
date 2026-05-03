@@ -25,7 +25,7 @@ export const fetchLatest = async (): Promise<ProductState[]> => {
   }));
 };
 
-export const fetchHistory = async (productId: string, resolution: 'raw' | '5m' | '1h' = 'raw', limit: number = 1000): Promise<HistoryPoint[]> => {
+export const fetchHistory = async (productId: string, resolution: 'raw' | '5m' | '1h' | '1d' = 'raw', limit: number = 1000): Promise<HistoryPoint[]> => {
   const res = await fetch(`${API_BASE}/bazaar/history/${productId}?resolution=${resolution}&limit=${limit}`);
   if (!res.ok) throw new Error(`Failed to fetch ${resolution} history`);
   const json = await res.json();
@@ -38,20 +38,22 @@ export const fetchHistory = async (productId: string, resolution: 'raw' | '5m' |
   }));
 };
 
-// Deprecated aliases (mapping to the new fetchHistory)
-export const fetchHistoryHighRes = (productId: string, limit: number = 1000) => fetchHistory(productId, 'raw', limit);
-export const fetchHistoryCandles = async (productId: string): Promise<any> => {
-  const res = await fetch(`${API_BASE}/bazaar/history/${productId}?resolution=1h&limit=20000`);
-  if (!res.ok) throw new Error(`Failed to fetch hourly candles`);
+// Unified history: stitches all resolution tiers into one seamless timeline
+export const fetchUnifiedHistory = async (productId: string): Promise<HistoryPoint[]> => {
+  const res = await fetch(`${API_BASE}/bazaar/history/${productId}/unified`);
+  if (!res.ok) throw new Error('Failed to fetch unified history');
   const json = await res.json();
-  return (json.data || []).map((c: any) => ({
-    timestamp: c.timestamp,
-    open: c.buy_open, // Using buy price for candles
-    high: c.buy_high,
-    low: c.buy_low,
-    close: c.buy_close,
+  return (json.data || []).map((p: any) => ({
+    timestamp: p.timestamp,
+    sellPrice: p.sellPrice,
+    buyPrice: p.buyPrice,
+    sellVolume: p.sellVolume,
+    buyVolume: p.buyVolume
   }));
 };
+
+// Deprecated aliases (mapping to the new fetchHistory)
+export const fetchHistoryHighRes = (productId: string, limit: number = 1000) => fetchHistory(productId, 'raw', limit);
 
 export const fetchFusions = async (): Promise<any> => {
   const res = await fetch('https://raw.githubusercontent.com/Campionnn/SkyShards/master/public/fusion-data.json');

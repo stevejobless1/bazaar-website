@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Search, Activity, TrendingUp, Radio } from 'lucide-react';
-import { fetchLatest, fetchHistoryHighRes, fetchHistoryCandles, fetchLiveOrders, fetchMayors } from './api';
+import { fetchLatest, fetchUnifiedHistory, fetchLiveOrders, fetchMayors } from './api';
 import { ProductState, LiveOrderBook } from './types';
 import { createChart, ColorType } from 'lightweight-charts';
 import Flips from './Flips';
@@ -182,8 +182,6 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
 
 const ProductDetails = () => {
   const { productId } = useParams<{ productId: string }>();
-  // Default to High Res for that premium Area Chart look
-  const [timeframe, setTimeframe] = useState<'highres' | 'hourly'>('highres');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -257,52 +255,28 @@ const ProductDetails = () => {
           chartRef.current.removeSeries(seriesRef.current);
         }
 
-        if (timeframe === 'hourly') {
-          const candles = await fetchHistoryCandles(productId);
-          if (!seriesRef.current || !isRefresh) {
-            const series = chartRef.current.addCandlestickSeries({
-              upColor: '#3fb950',
-              downColor: '#f85149',
-              borderVisible: false,
-              wickUpColor: '#3fb950',
-              wickDownColor: '#f85149',
-            });
-            seriesRef.current = series;
-          }
-          
-          const tzOffset = new Date().getTimezoneOffset() * 60000;
-          seriesRef.current.setData(candles.map((c: any) => ({
-            time: Math.floor((c.timestamp - tzOffset) / 1000) as any,
-            open: c.open,
-            high: c.high,
-            low: c.low,
-            close: c.close,
-          })).sort((a: any, b: any) => a.time - b.time));
-        } else {
-          const points = await fetchHistoryHighRes(productId, 2000);
-          if (!seriesRef.current || !isRefresh) {
-            const series = chartRef.current.addAreaSeries({
-              lineColor: '#00e5ff',
-              topColor: 'rgba(0, 229, 255, 0.4)',
-              bottomColor: 'rgba(0, 229, 255, 0.0)',
-              lineWidth: 2,
-            });
-            seriesRef.current = series;
-          }
-          
-          const tzOffset = new Date().getTimezoneOffset() * 60000;
-          seriesRef.current.setData(points.map(p => ({
-            time: Math.floor((p.timestamp - tzOffset) / 1000) as any,
-            value: p.sellPrice,
-          })).sort((a: any, b: any) => a.time - b.time));
+        const points = await fetchUnifiedHistory(productId);
+        if (!seriesRef.current || !isRefresh) {
+          const series = chartRef.current.addAreaSeries({
+            lineColor: '#00e5ff',
+            topColor: 'rgba(0, 229, 255, 0.4)',
+            bottomColor: 'rgba(0, 229, 255, 0.0)',
+            lineWidth: 2,
+          });
+          seriesRef.current = series;
         }
+        
+        const tzOffset = new Date().getTimezoneOffset() * 60000;
+        seriesRef.current.setData(points.map(p => ({
+          time: Math.floor((p.timestamp - tzOffset) / 1000) as any,
+          value: p.sellPrice,
+        })).sort((a: any, b: any) => a.time - b.time));
 
-        // Fetch and apply mayor markers
-        if (seriesRef.current) {
-          const startTime = timeframe === 'hourly' ? Date.now() - 30 * 24 * 60 * 60 * 1000 : Date.now() - 7 * 24 * 60 * 60 * 1000;
+        // Fetch and apply mayor markers across the full visible range
+        if (seriesRef.current && points.length > 0) {
+          const startTime = points[0].timestamp;
           const mayors = await fetchMayors(startTime, Date.now());
           
-          const tzOffset = new Date().getTimezoneOffset() * 60000;
           const markers = mayors.map(m => ({
             time: Math.floor((m.timestamp - tzOffset) / 1000) as any,
             position: 'aboveBar' as const,
@@ -339,7 +313,7 @@ const ProductDetails = () => {
     // Auto-update every 20 seconds
     const interval = setInterval(() => loadData(true), 20000);
     return () => clearInterval(interval);
-  }, [productId, timeframe]);
+  }, [productId]);
 
   return (
     <div className="main-content">
@@ -362,22 +336,7 @@ const ProductDetails = () => {
         <div className="glass-panel chart-container">
           <div className="chart-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
             <div className="chart-title">Price History</div>
-            <div className="tabs-container" style={{ marginBottom: 0, borderBottom: 'none' }}>
-              <button 
-                className={`tab ${timeframe === 'highres' ? 'active' : ''}`}
-                onClick={() => setTimeframe('highres')}
-                style={{ padding: '0.25rem 1rem', fontSize: '0.85rem' }}
-              >
-                Recent (High-Res Area)
-              </button>
-              <button 
-                className={`tab ${timeframe === 'hourly' ? 'active' : ''}`}
-                onClick={() => setTimeframe('hourly')}
-                style={{ padding: '0.25rem 1rem', fontSize: '0.85rem' }}
-              >
-                Historical (Candles)
-              </button>
-            </div>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Unified timeline — resolution decreases with age</div>
           </div>
           {loading && <div className="loader-container" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 14, 20, 0.5)', zIndex: 10 }}><div className="loader"></div></div>}
           {error && <div className="error-message">{error}</div>}
