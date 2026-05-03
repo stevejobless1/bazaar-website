@@ -18,6 +18,7 @@ const formatTime = (ts: number) => {
 };
 
 const GAP_THRESHOLD_MS = 48 * 60 * 60 * 1000; // 48 hours
+const padding = { top: 30, right: 20, bottom: 40, left: 60 };
 
 interface PriceChartProps {
   data: HistoryPoint[];
@@ -73,7 +74,6 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
   }, []);
 
   const { width, height } = dimensions;
-  const padding = { top: 30, right: 20, bottom: 40, left: 60 };
   const chartHeight = Math.max(0, height - 40); // 40px for preset bar
   const innerWidth = Math.max(0, width - padding.left - padding.right);
   const innerHeight = Math.max(0, chartHeight - padding.top - padding.bottom);
@@ -190,7 +190,7 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
       getX, getY, 
       pathDSell, pathDBuy, areaD 
     };
-  }, [sorted, innerWidth, innerHeight, padding, domain]);
+  }, [sorted, innerWidth, innerHeight, domain]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
@@ -337,185 +337,188 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
     setPriceDomain(null);
   };
 
-  if (!parsedData || width === 0 || height === 0) {
-    return <div ref={containerRef} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>Loading chart data...</div>;
-  }
-
-  const { domainMin, domainMax, minPrice, maxPrice, getX, getY, pathDSell, pathDBuy, areaD } = parsedData;
-
   return (
     <div 
       ref={containerRef} 
-      style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}
+      style={{ width: '100%', height: '100%', position: 'relative', overflow: 'hidden' }}
     >
-      <div className="chart-presets" style={{ 
-        display: 'flex', 
-        gap: '8px', 
-        padding: '8px 16px', 
-        background: 'rgba(255, 255, 255, 0.03)', 
-        borderBottom: '1px solid var(--border-color)',
-        zIndex: 5
-      }}>
-        {presets.map(p => (
-          <button 
-            key={p.label}
-            className={`tab ${activePreset === p.label ? 'active' : ''}`}
-            style={{ 
-              padding: '4px 12px', 
-              fontSize: '0.75rem', 
-              height: 'auto', 
-              minWidth: '40px',
-              borderRadius: '6px',
-              border: activePreset === p.label ? '1px solid var(--accent-color)' : '1px solid transparent'
+      {(!parsedData || width === 0 || height === 0) ? (
+        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+          {sorted.length === 0 ? "No data points available" : "Loading chart..."}
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', height: '100%', width: '100%' }}>
+          <div className="chart-presets" style={{ 
+            display: 'flex', 
+            gap: '8px', 
+            padding: '8px 16px', 
+            background: 'rgba(255, 255, 255, 0.03)', 
+            borderBottom: '1px solid var(--border-color)',
+            zIndex: 5
+          }}>
+            {presets.map(p => (
+              <button 
+                key={p.label}
+                className={`tab ${activePreset === p.label ? 'active' : ''}`}
+                style={{ 
+                  padding: '4px 12px', 
+                  fontSize: '0.75rem', 
+                  height: 'auto', 
+                  minWidth: '40px',
+                  borderRadius: '6px',
+                  border: activePreset === p.label ? '1px solid var(--accent-color)' : '1px solid transparent'
+                }}
+                onClick={() => applyPreset(p.duration, p.label)}
+              >
+                {p.label}
+              </button>
+            ))}
+            <div style={{ flex: 1 }} />
+            <button 
+              className="tab"
+              style={{ padding: '4px 12px', fontSize: '0.75rem', height: 'auto', opacity: 0.7 }}
+              onClick={() => {
+                handleDoubleClick();
+                setActivePreset(null);
+              }}
+            >
+              Reset View
+            </button>
+          </div>
+
+          <div 
+            style={{ flex: 1, position: 'relative', cursor: isDragging.current ? 'grabbing' : 'crosshair', overflow: 'hidden' }}
+            onPointerDown={(e) => {
+              handlePointerDown(e);
+              // Don't clear preset if clicking a preset button (though buttons are outside this div)
+              setActivePreset(null);
             }}
-            onClick={() => applyPreset(p.duration, p.label)}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerLeave={handlePointerUp}
+            onDoubleClick={handleDoubleClick}
           >
-            {p.label}
-          </button>
-        ))}
-        <div style={{ flex: 1 }} />
-        <button 
-          className="tab"
-          style={{ padding: '4px 12px', fontSize: '0.75rem', height: 'auto', opacity: 0.7 }}
-          onClick={() => {
-            handleDoubleClick();
-            setActivePreset(null);
-          }}
-        >
-          Reset View
-        </button>
-      </div>
+            <svg width={width} height={chartHeight} style={{ display: 'block' }}>
+              <defs>
+                <linearGradient id="margin-gradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="rgba(255, 0, 160, 0.15)" />
+                  <stop offset="100%" stopColor="rgba(0, 229, 255, 0.15)" />
+                </linearGradient>
+                <clipPath id="chart-area-clip">
+                  <rect x={padding.left} y={0} width={innerWidth} height={chartHeight} />
+                </clipPath>
+              </defs>
 
-      <div 
-        style={{ flex: 1, position: 'relative', cursor: isDragging.current ? 'grabbing' : 'crosshair' }}
-        onPointerDown={(e) => {
-          handlePointerDown(e);
-          setActivePreset(null);
-        }}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerLeave={handlePointerUp}
-        onDoubleClick={handleDoubleClick}
-      >
-        <svg width={width} height={chartHeight} style={{ display: 'block' }}>
-          <defs>
-            <linearGradient id="margin-gradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="rgba(255, 0, 160, 0.15)" />
-              <stop offset="100%" stopColor="rgba(0, 229, 255, 0.15)" />
-            </linearGradient>
-            <clipPath id="chart-area-clip">
-              <rect x={padding.left} y={0} width={innerWidth} height={chartHeight} />
-            </clipPath>
-          </defs>
-
-          {/* Grid lines (Y axis) */}
-          {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
-            const y = padding.top + innerHeight * ratio;
-            return (
-              <g key={`grid-y-${ratio}`}>
-                <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="rgba(48, 54, 61, 0.3)" strokeWidth="1" />
-                <text x={padding.left - 10} y={y} fill="var(--text-secondary)" fontSize="12" textAnchor="end" dominantBaseline="middle">
-                  {formatCommas(minPrice + (maxPrice - minPrice) * (1 - ratio))}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Time labels (X axis) */}
-          {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
-            const x = padding.left + innerWidth * ratio;
-            const t = domainMin + (domainMax - domainMin) * ratio;
-            return (
-              <text key={`grid-x-${ratio}`} x={x} y={chartHeight - 15} fill="var(--text-secondary)" fontSize="12" textAnchor="middle">
-                {formatTime(t)}
-              </text>
-            );
-          })}
-
-          {/* Legend */}
-          <g transform={`translate(${padding.left + 20}, ${padding.top + 20})`}>
-            <rect x="0" y="0" width="12" height="12" fill="#ff00a0" rx="2" />
-            <text x="20" y="10" fill="var(--text-secondary)" fontSize="12" dominantBaseline="middle">Buy Price</text>
-            
-            <rect x="150" y="0" width="12" height="12" fill="#00e5ff" rx="2" />
-            <text x="170" y="10" fill="var(--text-secondary)" fontSize="12" dominantBaseline="middle">Sell Price</text>
-          </g>
-
-          {/* Chart Area and Lines */}
-          <g clipPath="url(#chart-area-clip)">
-            <path d={areaD} fill="url(#margin-gradient)" />
-            <path d={pathDBuy} fill="none" stroke="#ff00a0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-            <path d={pathDSell} fill="none" stroke="#00e5ff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
-
-            {/* Mayor Markers - Dedicated Layer */}
-            <g className="mayor-markers">
-              {mayors.map(m => {
-                if (m.timestamp < domainMin || m.timestamp > domainMax) return null;
-                const x = getX(m.timestamp);
+              {/* Grid lines (Y axis) */}
+              {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
+                const y = padding.top + innerHeight * ratio;
                 return (
-                  <g key={`mayor-${m.name}-${m.timestamp}`}>
-                    <line x1={x} y1={padding.top} x2={x} y2={padding.top + innerHeight} stroke="rgba(227, 179, 65, 0.3)" strokeDasharray="4 4" strokeWidth="1" />
-                    <polygon points={`${x-6},${padding.top} ${x+6},${padding.top} ${x},${padding.top + 8}`} fill="#e3b341" />
-                    <text x={x} y={padding.top - 8} fill="#e3b341" fontSize="12" fontWeight="bold" textAnchor="middle">{m.name}</text>
+                  <g key={`grid-y-${ratio}`}>
+                    <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="rgba(48, 54, 61, 0.3)" strokeWidth="1" />
+                    <text x={padding.left - 10} y={y} fill="var(--text-secondary)" fontSize="12" textAnchor="end" dominantBaseline="middle">
+                      {formatCommas(parsedData.minPrice + (parsedData.maxPrice - parsedData.minPrice) * (1 - ratio))}
+                    </text>
                   </g>
                 );
               })}
-            </g>
 
-            {/* Hover Crosshair */}
-            {!isDragging.current && hover && hover.x >= padding.left && hover.x <= padding.left + innerWidth && (
-              <g>
-                <line x1={hover.x} y1={padding.top} x2={hover.x} y2={padding.top + innerHeight} stroke="rgba(255, 255, 255, 0.3)" strokeWidth="1" />
-                <circle cx={hover.x} cy={getY(hover.point.buyPrice)} r="5" fill="#0b0e14" stroke="#ff00a0" strokeWidth="2" />
-                <circle cx={hover.x} cy={getY(hover.point.sellPrice)} r="5" fill="#0b0e14" stroke="#00e5ff" strokeWidth="2" />
+              {/* Time labels (X axis) */}
+              {[0, 0.25, 0.5, 0.75, 1].map(ratio => {
+                const x = padding.left + innerWidth * ratio;
+                const t = parsedData.domainMin + (parsedData.domainMax - parsedData.domainMin) * ratio;
+                return (
+                  <text key={`grid-x-${ratio}`} x={x} y={chartHeight - 15} fill="var(--text-secondary)" fontSize="12" textAnchor="middle">
+                    {formatTime(t)}
+                  </text>
+                );
+              })}
+
+              {/* Legend */}
+              <g transform={`translate(${padding.left + 20}, ${padding.top + 20})`}>
+                <rect x="0" y="0" width="12" height="12" fill="#ff00a0" rx="2" />
+                <text x="20" y="10" fill="var(--text-secondary)" fontSize="12" dominantBaseline="middle">Buy Price</text>
+                
+                <rect x="150" y="0" width="12" height="12" fill="#00e5ff" rx="2" />
+                <text x="170" y="10" fill="var(--text-secondary)" fontSize="12" dominantBaseline="middle">Sell Price</text>
               </g>
-            )}
-          </g>
-        </svg>
 
-        {/* HTML Tooltip */}
-        {!isDragging.current && hover && hover.x >= padding.left && hover.x <= padding.left + innerWidth && (
-          <div 
-            className="glass-panel"
-            style={{
-              position: 'absolute',
-              left: `${hover.x}px`,
-              top: '20px',
-              pointerEvents: 'none',
-              padding: '12px 16px',
-              minWidth: '200px',
-              zIndex: 10,
-              transform: hover.x > padding.left + innerWidth / 2 ? 'translate(calc(-100% - 20px), 0)' : 'translate(20px, 0)',
-              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '8px'
-            }}
-          >
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
-              {new Date(hover.point.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'medium' })}
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Buy Price</span>
-              <span style={{ fontWeight: 'bold', color: '#ff00a0' }}>{formatCommas(hover.point.buyPrice)}</span>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Sell Price</span>
-              <span style={{ fontWeight: 'bold', color: '#00e5ff' }}>{formatCommas(hover.point.sellPrice)}</span>
-            </div>
-  
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed var(--border-color)' }}>
-              <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Margin</span>
-              <span style={{ fontWeight: 'bold', color: hover.point.buyPrice - hover.point.sellPrice > 0 ? '#3fb950' : '#f85149', fontSize: '0.9rem' }}>
-                {formatCommas(hover.point.buyPrice - hover.point.sellPrice)}
-              </span>
-            </div>
+              {/* Chart Area and Lines */}
+              <g clipPath="url(#chart-area-clip)">
+                <path d={parsedData.areaD} fill="url(#margin-gradient)" />
+                <path d={parsedData.pathDBuy} fill="none" stroke="#ff00a0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+                <path d={parsedData.pathDSell} fill="none" stroke="#00e5ff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+
+                {/* Mayor Markers */}
+                <g className="mayor-markers">
+                  {mayors.map(m => {
+                    if (m.timestamp < parsedData.domainMin || m.timestamp > parsedData.domainMax) return null;
+                    const mx = parsedData.getX(m.timestamp);
+                    return (
+                      <g key={`mayor-${m.name}-${m.timestamp}`}>
+                        <line x1={mx} y1={padding.top} x2={mx} y2={padding.top + innerHeight} stroke="rgba(227, 179, 65, 0.3)" strokeDasharray="4 4" strokeWidth="1" />
+                        <polygon points={`${mx-6},${padding.top} ${mx+6},${padding.top} ${mx},${padding.top + 8}`} fill="#e3b341" />
+                        <text x={mx} y={padding.top - 8} fill="#e3b341" fontSize="12" fontWeight="bold" textAnchor="middle">{m.name}</text>
+                      </g>
+                    );
+                  })}
+                </g>
+
+                {/* Hover Crosshair */}
+                {!isDragging.current && hover && hover.x >= padding.left && hover.x <= padding.left + innerWidth && (
+                  <g>
+                    <line x1={hover.x} y1={padding.top} x2={hover.x} y2={padding.top + innerHeight} stroke="rgba(255, 255, 255, 0.3)" strokeWidth="1" />
+                    <circle cx={hover.x} cy={parsedData.getY(hover.point.buyPrice)} r="5" fill="#0b0e14" stroke="#ff00a0" strokeWidth="2" />
+                    <circle cx={hover.x} cy={parsedData.getY(hover.point.sellPrice)} r="5" fill="#0b0e14" stroke="#00e5ff" strokeWidth="2" />
+                  </g>
+                )}
+              </g>
+            </svg>
+
+            {/* HTML Tooltip */}
+            {!isDragging.current && hover && hover.x >= padding.left && hover.x <= padding.left + innerWidth && (
+              <div 
+                className="glass-panel"
+                style={{
+                  position: 'absolute',
+                  left: `${hover.x}px`,
+                  top: '20px',
+                  pointerEvents: 'none',
+                  padding: '12px 16px',
+                  minWidth: '200px',
+                  zIndex: 10,
+                  transform: hover.x > padding.left + innerWidth / 2 ? 'translate(calc(-100% - 20px), 0)' : 'translate(20px, 0)',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}
+              >
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '6px' }}>
+                  {new Date(hover.point.timestamp).toLocaleString([], { dateStyle: 'medium', timeStyle: 'medium' })}
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Buy Price</span>
+                  <span style={{ fontWeight: 'bold', color: '#ff00a0' }}>{formatCommas(hover.point.buyPrice)}</span>
+                </div>
+                
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Sell Price</span>
+                  <span style={{ fontWeight: 'bold', color: '#00e5ff' }}>{formatCommas(hover.point.sellPrice)}</span>
+                </div>
+      
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed var(--border-color)' }}>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Margin</span>
+                  <span style={{ fontWeight: 'bold', color: hover.point.buyPrice - hover.point.sellPrice > 0 ? '#3fb950' : '#f85149', fontSize: '0.9rem' }}>
+                    {formatCommas(hover.point.buyPrice - hover.point.sellPrice)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
