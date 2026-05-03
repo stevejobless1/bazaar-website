@@ -788,6 +788,16 @@ tr:nth-child(3) .rank-badge { background: linear-gradient(135deg, #b45309, #7835
   100% { transform: scale(1.5); opacity: 0; }
 }
 
+/* Update Animations */
+@keyframes flash-update {
+  0% { background-color: rgba(0, 229, 255, 0.2); }
+  100% { background-color: transparent; }
+}
+
+.flash-update {
+  animation: flash-update 1.5s ease-out;
+}
+
 @media (max-width: 600px) {
   .status-hero { padding: 1.5rem; }
   .status-hero-title { font-size: 1.5rem; }

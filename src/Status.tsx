@@ -22,7 +22,9 @@ interface StatusData {
     pageSize: number;
     tables: {
       prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
+      one_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       five_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
+      thirty_min_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       hourly_prices: { rows: number; oldestTimestamp: number | null; newestTimestamp: number | null };
       products: { rows: number };
       live_orders: { rows: number };
@@ -122,15 +124,13 @@ const PulsingDot = ({ status }: { status: 'online' | 'degraded' | 'offline' | 'c
 };
 
 const UptimeBar = ({ history }: { history: UptimePoint[] }) => {
-  // Ensure we have 30 points, pad if needed
-  const displayHistory = [...history].slice(-30);
-  while (displayHistory.length < 30) {
-    displayHistory.unshift({ date: '', uptimePct: 100, status: 'operational' });
-  }
+  // Use full history or at least the available history
+  const displayHistory = history.length > 0 ? history : [{ date: '', uptimePct: 100, status: 'operational' as const }];
+  const firstDate = displayHistory[0]?.date ? new Date(displayHistory[0].date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : 'Start';
 
   return (
     <div className="uptime-history-container">
-      <div className="uptime-bar">
+      <div className="uptime-bar" style={{ gridTemplateColumns: `repeat(${displayHistory.length}, 1fr)` }}>
         {displayHistory.map((point, i) => (
           <div
             key={i}
@@ -140,7 +140,7 @@ const UptimeBar = ({ history }: { history: UptimePoint[] }) => {
         ))}
       </div>
       <div className="uptime-footer">
-        <span>30 days ago</span>
+        <span>{firstDate}</span>
         <span className="uptime-line"></span>
         <span>{history[history.length - 1]?.uptimePct || 100}% uptime</span>
         <span className="uptime-line"></span>
@@ -427,8 +427,18 @@ const Status = () => {
                       </tr>
                       <tr>
                         <td><Layers size={12} /> Warm</td>
-                        <td>5m (24h)</td>
+                        <td>1m (24h)</td>
+                        <td>{formatNumber(statusData.database.tables.one_min_prices.rows)}</td>
+                      </tr>
+                      <tr>
+                        <td><Layers size={12} /> Warm</td>
+                        <td>5m (3d)</td>
                         <td>{formatNumber(statusData.database.tables.five_min_prices.rows)}</td>
+                      </tr>
+                      <tr>
+                        <td><Layers size={12} /> Cold</td>
+                        <td>30m (7d)</td>
+                        <td>{formatNumber(statusData.database.tables.thirty_min_prices.rows)}</td>
                       </tr>
                       <tr>
                         <td><Layers size={12} /> Cold</td>

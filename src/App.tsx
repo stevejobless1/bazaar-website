@@ -248,50 +248,52 @@ const ProductDetails = () => {
   useEffect(() => {
     if (!productId || !chartRef.current) return;
     
-    const loadData = async () => {
-      setLoading(true);
+    const loadData = async (isRefresh = false) => {
+      if (!isRefresh) setLoading(true);
       setError(null);
       try {
-        if (seriesRef.current) {
+        if (!isRefresh && seriesRef.current) {
           chartRef.current.removeSeries(seriesRef.current);
         }
 
         if (timeframe === 'hourly') {
           const candles = await fetchHistoryCandles(productId);
-          const series = chartRef.current.addCandlestickSeries({
-            upColor: '#3fb950',
-            downColor: '#f85149',
-            borderVisible: false,
-            wickUpColor: '#3fb950',
-            wickDownColor: '#f85149',
-          });
+          if (!seriesRef.current || !isRefresh) {
+            const series = chartRef.current.addCandlestickSeries({
+              upColor: '#3fb950',
+              downColor: '#f85149',
+              borderVisible: false,
+              wickUpColor: '#3fb950',
+              wickDownColor: '#f85149',
+            });
+            seriesRef.current = series;
+          }
           
           const tzOffset = new Date().getTimezoneOffset() * 60000;
-          
-          series.setData(candles.map((c: any) => ({
+          seriesRef.current.setData(candles.map((c: any) => ({
             time: Math.floor((c.timestamp - tzOffset) / 1000) as any,
             open: c.open,
             high: c.high,
             low: c.low,
             close: c.close,
           })).sort((a: any, b: any) => a.time - b.time));
-          seriesRef.current = series;
         } else {
-          const points = await fetchHistoryHighRes(productId, 2000); // Fetch more for nice area chart
-          const series = chartRef.current.addAreaSeries({
-            lineColor: '#00e5ff',
-            topColor: 'rgba(0, 229, 255, 0.4)',
-            bottomColor: 'rgba(0, 229, 255, 0.0)',
-            lineWidth: 2,
-          });
+          const points = await fetchHistoryHighRes(productId, 2000);
+          if (!seriesRef.current || !isRefresh) {
+            const series = chartRef.current.addAreaSeries({
+              lineColor: '#00e5ff',
+              topColor: 'rgba(0, 229, 255, 0.4)',
+              bottomColor: 'rgba(0, 229, 255, 0.0)',
+              lineWidth: 2,
+            });
+            seriesRef.current = series;
+          }
           
           const tzOffset = new Date().getTimezoneOffset() * 60000;
-
-          series.setData(points.map(p => ({
+          seriesRef.current.setData(points.map(p => ({
             time: Math.floor((p.timestamp - tzOffset) / 1000) as any,
             value: p.sellPrice,
           })).sort((a: any, b: any) => a.time - b.time));
-          seriesRef.current = series;
         }
 
         // Fetch and apply mayor markers
@@ -311,15 +313,31 @@ const ProductDetails = () => {
           seriesRef.current.setMarkers(markers);
         }
         
-        chartRef.current.timeScale().fitContent();
+        if (!isRefresh) chartRef.current.timeScale().fitContent();
+
+        // Also refresh the side panel stats and orders
+        fetchLatest().then(data => {
+          const match = data.find(p => p.productId === productId);
+          if (match) setLatestStats(match);
+        });
+        fetchLiveOrders(productId).then(data => {
+          if (data.success) {
+            setLiveOrders({ buy_summary: data.buy_summary, sell_summary: data.sell_summary });
+          }
+        });
+
       } catch (err: any) {
-        setError(err.message);
+        if (!isRefresh) setError(err.message);
       } finally {
-        setLoading(false);
+        if (!isRefresh) setLoading(false);
       }
     };
 
     loadData();
+
+    // Auto-update every 20 seconds
+    const interval = setInterval(() => loadData(true), 20000);
+    return () => clearInterval(interval);
   }, [productId, timeframe]);
 
   return (
@@ -453,7 +471,7 @@ const ProductDetails = () => {
                 </thead>
                 <tbody>
                   {liveOrders.buy_summary.slice(0, 15).map((order, i) => (
-                    <tr key={i}>
+                    <tr key={`${order.pricePerUnit}-${order.amount}`} className="flash-update">
                       <td style={{ color: '#3fb950', fontWeight: 500 }}>{formatCommas(order.pricePerUnit)}</td>
                       <td>{formatCommas(order.amount)}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{formatCommas(order.orders)}</td>
@@ -476,7 +494,7 @@ const ProductDetails = () => {
                 </thead>
                 <tbody>
                   {liveOrders.sell_summary.slice(0, 15).map((order, i) => (
-                    <tr key={i}>
+                    <tr key={`${order.pricePerUnit}-${order.amount}`} className="flash-update">
                       <td style={{ color: '#f85149', fontWeight: 500 }}>{formatCommas(order.pricePerUnit)}</td>
                       <td>{formatCommas(order.amount)}</td>
                       <td style={{ color: 'var(--text-secondary)' }}>{formatCommas(order.orders)}</td>
