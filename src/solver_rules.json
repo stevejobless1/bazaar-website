@@ -1,0 +1,530 @@
+{
+  "Ashwreath": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "2-2",
+    "reqs": {
+      "Nether Wart": 2,
+      "Fire": 2
+    }
+  },
+  "Choconut": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "2",
+    "reqs": {
+      "Cocoa Beans": 2
+    }
+  },
+  "Dustgrain": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "2",
+    "reqs": {
+      "Wheat": 2
+    }
+  },
+  "Gloomgourd": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "1-1",
+    "reqs": {
+      "Pumpkin": 1,
+      "Melon": 1
+    }
+  },
+  "Lonelily": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "0",
+    "reqs": {}
+  },
+  "Scourroot": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "1-1",
+    "reqs": {
+      "Potato": 1,
+      "Carrot": 1
+    }
+  },
+  "Shadevine": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "1-1",
+    "reqs": {
+      "Cactus": 1,
+      "Sugar Cane": 1
+    }
+  },
+  "Veilshroom": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "1-1",
+    "reqs": {
+      "Red Mushroom": 1,
+      "Brown Mushroom": 1
+    }
+  },
+  "Witherbloom": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4",
+    "reqs": {
+      "Dead Plant": 4
+    }
+  },
+  "Chocoberry": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "2-6",
+    "reqs": {
+      "Choconut": 6,
+      "Gloomgourd": 2
+    }
+  },
+  "Cindershade": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Ashwreath": 4,
+      "Witherbloom": 4
+    }
+  },
+  "Coalroot": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "5-3",
+    "reqs": {
+      "Ashwreath": 5,
+      "Scourroot": 3
+    }
+  },
+  "Creambloom": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "8",
+    "reqs": {
+      "Choconut": 8
+    }
+  },
+  "Duskbloom": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "2-2-2-2",
+    "reqs": {
+      "Moonflower": 2,
+      "Shadevine": 2,
+      "Sunflower": 2,
+      "Dustgrain": 2
+    }
+  },
+  "Thornshade": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Wild Rose": 4,
+      "Veilshroom": 4
+    }
+  },
+  "Blastberry": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "5-3",
+    "reqs": {
+      "Chocoberry": 5,
+      "Ashwreath": 3
+    }
+  },
+  "Cheesebite": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Creambloom": 4,
+      "Fermento": 4
+    }
+  },
+  "Chloronite": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "6-2",
+    "reqs": {
+      "Coalroot": 6,
+      "Thornshade": 2
+    }
+  },
+  "Do-not-eat-shroom": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Veilshroom": 4,
+      "Scourroot": 4
+    }
+  },
+  "Fleshtrap": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Cindershade": 4,
+      "Lonelily": 4
+    }
+  },
+  "Magic Jellybean": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "3-5",
+    "reqs": {
+      "Sugar Cane": 5,
+      "Duskbloom": 3
+    }
+  },
+  "Noctilume": {
+    "size": "2x2",
+    "width": 2,
+    "height": 2,
+    "type": "6-6",
+    "reqs": {
+      "Duskbloom": 6,
+      "Lonelily": 6
+    }
+  },
+  "Snoozling": {
+    "size": "3x3",
+    "width": 3,
+    "height": 3,
+    "type": "4-3-3-3-3",
+    "reqs": {
+      "Creambloom": 4,
+      "Dustgrain": 3,
+      "Witherbloom": 3,
+      "Duskbloom": 3,
+      "Thornshade": 3
+    }
+  },
+  "Soggybud": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "2-2",
+    "reqs": {
+      "Melon": 2,
+      "Gloomgourd": 2
+    }
+  },
+  "Chorus Fruit": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "5-3",
+    "reqs": {
+      "Chloronite": 5,
+      "Magic Jellybean": 3
+    }
+  },
+  "PlantBoy Advance": {
+    "size": "2x2",
+    "width": 2,
+    "height": 2,
+    "type": "(3)6-6",
+    "reqs": {
+      "Snoozling": 6,
+      "Thunderling": 6
+    }
+  },
+  "Puffercloud": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "(3)2-7",
+    "reqs": {
+      "Snoozling": 2,
+      "Do-not-eat-shroom": 6
+    }
+  },
+  "Shellfruit": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "1",
+    "reqs": {
+      "Blastberry": 2
+    }
+  },
+  "Startlevine": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Blastberry": 4,
+      "Cheesebite": 4
+    }
+  },
+  "Stoplight Petal": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "(3)4-(2)4",
+    "reqs": {
+      "Snoozling": 4,
+      "Noctilume": 4
+    }
+  },
+  "Thunderling": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "(2)3-5",
+    "reqs": {
+      "Soggybud": 5,
+      "Noctilume": 3
+    }
+  },
+  "Turtlellini": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Soggybud": 4,
+      "Choconut": 4
+    }
+  },
+  "Zombud": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "2-2-4",
+    "reqs": {
+      "Dead Plant": 4,
+      "Cindershade": 2,
+      "Fleshtrap": 2
+    }
+  },
+  "All-in Aloe": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "(2)2-7",
+    "reqs": {
+      "Magic Jellybean": 6,
+      "PlantBoy Advance": 2
+    }
+  },
+  "Devourer": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Puffercloud": 4,
+      "Zombud": 4
+    }
+  },
+  "Glasscorn": {
+    "size": "2x2",
+    "width": 2,
+    "height": 2,
+    "type": "6-6",
+    "reqs": {
+      "Startlevine": 6,
+      "Chloronite": 6
+    }
+  },
+  "Godseed": {
+    "size": "3x3",
+    "width": 3,
+    "height": 3,
+    "type": "1x12",
+    "reqs": {
+      "*": 12
+    }
+  },
+  "Jerryflower": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "-1",
+    "reqs": {}
+  },
+  "Phantomleaf": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-4",
+    "reqs": {
+      "Chorus Fruit": 4,
+      "Shellfruit": 4
+    }
+  },
+  "Timestalk": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "4-2-2",
+    "reqs": {
+      "Stoplight Petal": 4,
+      "Chorus Fruit": 2,
+      "Shellfruit": 2
+    }
+  },
+  "Melon": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Sugar Cane": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Sunflower": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Moonflower": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Cocoa Beans": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Fermento": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Carrot": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Wild Rose": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Fire": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Potato": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Cactus": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Dead Plant": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Pumpkin": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Nether Wart": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Brown Mushroom": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Wheat": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Red Mushroom": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Soul Sand": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  },
+  "Water": {
+    "size": "1x1",
+    "width": 1,
+    "height": 1,
+    "type": "base",
+    "reqs": {}
+  }
+}

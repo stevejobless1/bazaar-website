@@ -90,3 +90,15 @@ export const fetchVolumeHistory = async (productId: string, start?: number, end?
     sellVolume: p.sellVolume !== undefined ? p.sellVolume : p.sell_volume
   }));
 };
+
+export const fetchMLPredictions = async (): Promise<any> => {
+  const res = await fetch(`${API_BASE}/ml/predictions`);
+  if (!res.ok) throw new Error('ML Predictions not ready');
+  return await res.json();
+};
+
+export const fetchMLItemPrediction = async (productId: string): Promise<any> => {
+  const res = await fetch(`${API_BASE}/ml/predict/${productId}`);
+  if (!res.ok) throw new Error('ML Prediction for item not found');
+  return await res.json();
+};
