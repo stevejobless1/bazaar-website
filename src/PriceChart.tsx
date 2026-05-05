@@ -17,7 +17,7 @@ const formatTime = (ts: number) => {
   }
 };
 
-const GAP_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours
+const GAP_THRESHOLD_MS = 1 * 60 * 60 * 1000; // 1 hour (was 12h)
 const padding = { top: 40, right: 30, bottom: 60, left: 90 };
 
 interface PriceChartProps {
@@ -559,31 +559,35 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
                       return (
                         <g key={`vol-${v.timestamp}`}>
                           {/* Insta-Sell (filling Buy Orders) - VIVID PINK */}
-                          <rect 
-                            x={vx - barWidth/2} 
-                            y={chartBottom - sellPartH} 
-                            width={barWidth} 
-                            height={Math.max(0.5, sellPartH)} 
-                            fill="#ff00a0" 
-                            fillOpacity="0.4"
-                            stroke="#ff00a0"
-                            strokeOpacity="0.8"
-                            strokeWidth="1"
-                            rx="1"
-                          />
+                          {sellPartH > 0.1 && (
+                            <rect 
+                              x={vx - barWidth/2} 
+                              y={chartBottom - sellPartH} 
+                              width={barWidth} 
+                              height={sellPartH} 
+                              fill="#ff00a0" 
+                              fillOpacity="0.4"
+                              stroke="#ff00a0"
+                              strokeOpacity="0.8"
+                              strokeWidth="1"
+                              rx="1"
+                            />
+                          )}
                           {/* Insta-Buy (filling Sell Offers) - VIVID CYAN */}
-                          <rect 
-                            x={vx - barWidth/2} 
-                            y={chartBottom - sellPartH - buyPartH} 
-                            width={barWidth} 
-                            height={Math.max(0.5, buyPartH)} 
-                            fill="#00e5ff" 
-                            fillOpacity="0.6"
-                            stroke="#00e5ff"
-                            strokeOpacity="0.8"
-                            strokeWidth="1"
-                            rx="1"
-                          />
+                          {buyPartH > 0.1 && (
+                            <rect 
+                              x={vx - barWidth/2} 
+                              y={chartBottom - sellPartH - buyPartH} 
+                              width={barWidth} 
+                              height={buyPartH} 
+                              fill="#00e5ff" 
+                              fillOpacity="0.6"
+                              stroke="#00e5ff"
+                              strokeOpacity="0.8"
+                              strokeWidth="1"
+                              rx="1"
+                            />
+                          )}
                         </g>
                       );
                     })}

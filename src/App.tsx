@@ -427,19 +427,28 @@ function App() {
       });
   }, [isAuthed]);
 
-  const handleLogin = (password: string) => {
-    const validPassword = import.meta.env.VITE_DASHBOARD_PASSWORD || 'fusion';
-    if (password === validPassword || password === 'fusion-2024') {
-      localStorage.setItem('bt_auth', 'true');
-      // Set a cookie that lasts for 30 days
-      const d = new Date();
-      d.setTime(d.getTime() + (30*24*60*60*1000));
-      document.cookie = `bt_auth=true; expires=${d.toUTCString()}; path=/`;
+  const handleLogin = async (password: string) => {
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      });
       
-      setIsAuthed(true);
-      setLoginError(undefined);
-    } else {
-      setLoginError('Invalid access key. Please try again.');
+      if (res.ok) {
+        localStorage.setItem('bt_auth', 'true');
+        // Set a cookie that lasts for 30 days
+        const d = new Date();
+        d.setTime(d.getTime() + (30*24*60*60*1000));
+        document.cookie = `bt_auth=true; expires=${d.toUTCString()}; path=/; SameSite=Strict`;
+        
+        setIsAuthed(true);
+        setLoginError(undefined);
+      } else {
+        setLoginError('Invalid access key. Please try again.');
+      }
+    } catch (err) {
+      setLoginError('Server connection error. Please try again later.');
     }
   };
 

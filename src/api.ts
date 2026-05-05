@@ -84,5 +84,9 @@ export const fetchVolumeHistory = async (productId: string, start?: number, end?
   const res = await fetch(`${API_BASE}/bazaar/volume/${productId}?start=${s}&end=${e}&interval=${interval}`);
   if (!res.ok) throw new Error('Failed to fetch volume history');
   const json = await res.json();
-  return json.data || [];
+  return (json.data || []).map((p: any) => ({
+    timestamp: p.bucket || p.timestamp,
+    buyVolume: p.buyVolume !== undefined ? p.buyVolume : p.buy_volume,
+    sellVolume: p.sellVolume !== undefined ? p.sellVolume : p.sell_volume
+  }));
 };
