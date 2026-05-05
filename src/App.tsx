@@ -7,16 +7,11 @@ import PriceChart from './PriceChart';
 import Flips from './Flips';
 import Status from './Status';
 
+import ItemIcon from './ItemIcon';
+
 // --- Utilities ---
 const formatCommas = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 1 });
 const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
-
-// Helper to get item icons from a public repository (SkyCrypt uses Skyblock Item Textures)
-const getItemIconUrl = (productId: string) => {
-  // Common edge cases mapping can go here if needed
-  const cleanId = productId.replace(/(:[0-9]+)/g, ''); // Remove tier numbers if any
-  return `https://sky.shiiyu.moe/item/${cleanId}`;
-};
 
 // --- Components ---
 
@@ -151,10 +146,7 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
                 <tr key={p.productId} onClick={() => navigate(`/item/${p.productId}`)} title={`Click to view details for ${p.productId}`}>
                   <td>
                     <div className="product-name">
-                      <img src={getItemIconUrl(p.productId)} alt="" className="product-icon" onError={(e) => {
-                        // Fallback to a generic block if image fails to load
-                        (e.target as HTMLImageElement).src = 'https://sky.shiiyu.moe/item/STONE';
-                      }} />
+                      <ItemIcon productId={p.productId} className="product-icon" />
                       {p.productId.replace(/_/g, ' ')}
                     </div>
                   </td>
@@ -255,11 +247,9 @@ const ProductDetails = () => {
         <Link to="/" style={{ color: 'var(--text-secondary)', textDecoration: 'none' }}>← Back to Market</Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {productId && (
-            <img 
-              src={getItemIconUrl(productId)} 
-              alt="" 
-              style={{ width: '40px', height: '40px', objectFit: 'contain', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} 
-              onError={(e) => { (e.target as HTMLImageElement).src = 'https://sky.shiiyu.moe/item/STONE'; }} 
+            <ItemIcon 
+              productId={productId} 
+              style={{ width: '40px', height: '40px', filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))' }} 
             />
           )}
           <h2 style={{ fontSize: '1.8rem' }}>{productId?.replace(/_/g, ' ')}</h2>
