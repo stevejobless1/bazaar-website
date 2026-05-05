@@ -54,14 +54,21 @@ const Predictions: React.FC = () => {
 
   return (
     <div className="main-content">
-      <div className="status-hero" style={{ marginBottom: '2rem' }}>
-        <h1 className="status-hero-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-          <Brain size={32} color="var(--accent-color)" />
-          ML Price Predictions
-        </h1>
-        <p className="status-hero-subtitle">
-          AI-driven market analysis identifying high-probability entry points using LightGBM models.
-        </p>
+      <div className="status-hero" style={{ marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+        <div>
+          <h1 className="status-hero-title" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <Brain size={32} color="var(--accent-color)" />
+            ML Price Predictions
+          </h1>
+          <p className="status-hero-subtitle" style={{ margin: 0 }}>
+            AI-driven market analysis identifying high-probability entry points using LightGBM models.
+          </p>
+        </div>
+        <div>
+          <a href="/api/ml/client" className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', textDecoration: 'none' }}>
+            <Zap size={16} /> Download Local ML Client
+          </a>
+        </div>
       </div>
 
       {error ? (

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Info } from 'lucide-react';
-import { ProductState, FusionData } from './types';
-import { fetchFusions } from './api';
+import { ProductState, FusionData, LiveOrderBook } from './types';
+import { fetchFusions, fetchLiveOrders } from './api';
 import ItemIcon from './ItemIcon';
 import FusionTree from './FusionTree';
 
@@ -40,7 +40,11 @@ const calculatePrices = (fusionData: FusionData, productMap: Map<string, Product
     const prod = productMap.get(shard.internal_id);
     if (prod) {
       const price = buyStrategy === 'insta' ? prod.buyPrice : prod.sellPrice;
-      prices.set(shardId, { price, source: 'bazaar' });
+      if (price > 0) {
+        prices.set(shardId, { price, source: 'bazaar' });
+      } else {
+        prices.set(shardId, { price: Infinity, source: 'bazaar' });
+      }
     } else {
       prices.set(shardId, { price: Infinity, source: 'bazaar' });
     }
@@ -87,6 +91,119 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   const [buyStrategy, setBuyStrategy] = useState<Strategy>('insta');
   const [sellStrategy, setSellStrategy] = useState<Strategy>('order');
   const [selectedFlip, setSelectedFlip] = useState<DetailedFlip | null>(null);
+  const [maxFusionsInfo, setMaxFusionsInfo] = useState<{maxFusions: number, loading: boolean, error?: string} | null>(null);
+
+  useEffect(() => {
+    setMaxFusionsInfo(null);
+  }, [selectedFlip]);
+
+  const calculateMaxFusions = async (flip: DetailedFlip) => {
+    setMaxFusionsInfo({ maxFusions: 0, loading: true });
+    try {
+      const getBaseIngredients = (targetId: string, qty: number): Map<string, number> => {
+        const counts = new Map<string, number>();
+        const traverse = (currentId: string, currentQty: number) => {
+          const priceData = effectivePrices.get(currentId);
+          if (!priceData) return;
+          if (priceData.source === 'bazaar') {
+            counts.set(currentId, (counts.get(currentId) || 0) + currentQty);
+          } else {
+            const recipes = fusionData!.recipes[currentId];
+            let bestRecipe: string[] | null = null;
+            let outputQty = 1;
+            for (const [qtyStr, recipesList] of Object.entries(recipes)) {
+              const q = parseInt(qtyStr);
+              for (const recipe of recipesList as string[][]) {
+                let cost = 0;
+                for (const ingId of recipe) {
+                  const ingShard = fusionData!.shards[ingId];
+                  const ingPrice = effectivePrices.get(ingId)?.price || 0;
+                  cost += ingPrice * (ingShard?.fuse_amount || 0);
+                }
+                if (Math.abs(cost / q - priceData.price) < 0.1) {
+                  bestRecipe = recipe;
+                  outputQty = q;
+                  break;
+                }
+              }
+              if (bestRecipe) break;
+            }
+            if (bestRecipe) {
+              for (const ingId of bestRecipe) {
+                const ingShard = fusionData!.shards[ingId];
+                const neededForOne = ingShard?.fuse_amount || 1;
+                const totalNeeded = (neededForOne * currentQty) / outputQty;
+                traverse(ingId, totalNeeded);
+              }
+            }
+          }
+        };
+        traverse(targetId, qty);
+        return counts;
+      };
+
+      const baseIngredients = getBaseIngredients(flip.targetId, 1);
+      const orderBooks = new Map<string, LiveOrderBook>();
+      const itemsToFetch = Array.from(new Set([...Array.from(baseIngredients.keys()), flip.targetId]));
+      
+      await Promise.all(itemsToFetch.map(async (shardId) => {
+        const internalId = fusionData!.shards[shardId].internal_id;
+        const res = await fetchLiveOrders(internalId);
+        orderBooks.set(shardId, res);
+      }));
+      
+      let fusions = 0;
+      const books = new Map<string, LiveOrderBook>();
+      for (const [k, v] of orderBooks.entries()) {
+        books.set(k, JSON.parse(JSON.stringify(v)));
+      }
+      
+      while (true) {
+        let cost = 0;
+        let canMake = true;
+        for (const [shardId, qtyNeeded] of baseIngredients.entries()) {
+          const book = books.get(shardId)!;
+          let qtyToBuy = qtyNeeded;
+          let ingCost = 0;
+          while (qtyToBuy > 0 && book.sell_summary.length > 0) {
+            const cheapest = book.sell_summary[0];
+            const take = Math.min(qtyToBuy, cheapest.amount);
+            ingCost += take * cheapest.pricePerUnit;
+            qtyToBuy -= take;
+            cheapest.amount -= take;
+            if (cheapest.amount === 0) book.sell_summary.shift();
+          }
+          if (qtyToBuy > 0) {
+            canMake = false;
+            break;
+          }
+          cost += ingCost;
+        }
+        if (!canMake) break;
+        
+        let revenue = 0;
+        const targetBook = books.get(flip.targetId)!;
+        if (sellStrategy === 'insta') {
+           if (targetBook.buy_summary.length > 0) {
+             const highest = targetBook.buy_summary[0];
+             revenue = highest.pricePerUnit * 0.9875;
+             highest.amount -= 1;
+             if (highest.amount === 0) targetBook.buy_summary.shift();
+           } else break;
+        } else {
+           if (targetBook.sell_summary.length > 0) revenue = targetBook.sell_summary[0].pricePerUnit * 0.9875;
+           else revenue = flip.sellPrice;
+        }
+        
+        if (cost >= revenue) break;
+        fusions++;
+        if (fusions > 100000) break;
+      }
+      setMaxFusionsInfo({ maxFusions: fusions, loading: false });
+    } catch (err) {
+      setMaxFusionsInfo({ maxFusions: 0, loading: false, error: 'Failed' });
+    }
+  };
 
   useEffect(() => {
     fetchFusions()
@@ -313,6 +430,35 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                     <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#3fb950', fontFamily: 'monospace' }}>+{formatCompact(selectedFlip.maxProfitHr)}</div>
                   </div>
                 </div>
+              </div>
+
+              <div style={{ marginTop: '1.5rem', padding: '1.5rem', borderRadius: '12px', background: 'rgba(255, 255, 255, 0.03)', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Order Book Analysis</div>
+                    <div style={{ fontSize: '0.9rem', marginTop: '0.25rem', color: 'var(--text-secondary)' }}>Calculate maximum fusions using live order depth before flipping becomes unprofitable.</div>
+                  </div>
+                  <div>
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => calculateMaxFusions(selectedFlip)}
+                      disabled={maxFusionsInfo?.loading}
+                    >
+                      {maxFusionsInfo?.loading ? 'Calculating...' : 'Calculate Max Fusions'}
+                    </button>
+                  </div>
+                </div>
+                {maxFusionsInfo && !maxFusionsInfo.loading && (
+                  <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                    {maxFusionsInfo.error ? (
+                      <span style={{ color: 'var(--accent-color)' }}>{maxFusionsInfo.error}</span>
+                    ) : (
+                      <span style={{ fontSize: '1.1rem' }}>
+                        You can complete <b style={{ color: '#3fb950' }}>{maxFusionsInfo.maxFusions.toLocaleString()}</b> fusions before profitability drops below 0 based on current live order depth.
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
