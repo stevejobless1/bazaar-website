@@ -265,7 +265,7 @@ const ProductDetails = () => {
           {loading && <div className="loader-container" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 14, 20, 0.5)', zIndex: 10 }}><div className="loader"></div></div>}
           {error && <div className="error-message">{error}</div>}
           <div style={{ width: '100%', height: '500px' }}>
-            {!loading && !error && historyPoints.length > 0 && <PriceChart data={historyPoints} mayors={mayors} />}
+            {!loading && !error && historyPoints.length > 0 && <PriceChart key={productId} data={historyPoints} mayors={mayors} />}
           </div>
         </div>
 

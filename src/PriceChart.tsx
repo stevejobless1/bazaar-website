@@ -92,7 +92,12 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
   }, [sorted, domain]);
 
   const parsedData = useMemo(() => {
-    if (sorted.length === 0 || innerWidth === 0 || innerHeight === 0 || !domain) return null;
+    const width = dimensions.width;
+    const chartHeight = dimensions.height;
+    const innerWidthValue = Math.max(width - padding.left - padding.right, 1);
+    const innerHeightValue = Math.max(chartHeight - padding.top - padding.bottom, 1);
+
+    if (sorted.length === 0 || !domain) return null;
     
     const [domainMin, domainMax] = domain;
     
@@ -100,77 +105,64 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
     let minPrice = Infinity;
     let maxPrice = -Infinity;
     
-    const visiblePoints = [];
-    for (const p of sorted) {
-      // Add a tiny buffer so lines connecting in/out of frame are drawn
-      if (p.timestamp >= domainMin - (domainMax - domainMin) && p.timestamp <= domainMax + (domainMax - domainMin)) {
-        visiblePoints.push(p);
-        // Only scale y-axis for points actually visible
-        if (p.timestamp >= domainMin && p.timestamp <= domainMax) {
-          if (p.sellPrice < minPrice) minPrice = p.sellPrice;
-          if (p.buyPrice < minPrice) minPrice = p.buyPrice;
-          if (p.sellPrice > maxPrice) maxPrice = p.sellPrice;
-          if (p.buyPrice > maxPrice) maxPrice = p.buyPrice;
-        }
-      }
+    const visiblePoints = sorted.filter(p => p.timestamp >= domainMin && p.timestamp <= domainMax);
+    
+    for (const p of visiblePoints) {
+      if (p.buyPrice < minPrice) minPrice = p.buyPrice;
+      if (p.sellPrice < minPrice) minPrice = p.sellPrice;
+      if (p.buyPrice > maxPrice) maxPrice = p.buyPrice;
+      if (p.sellPrice > maxPrice) maxPrice = p.sellPrice;
     }
-
-    if (visiblePoints.length === 0) return null;
 
     if (minPrice === Infinity) {
       minPrice = 0;
       maxPrice = 1;
     }
 
-    // Add 5% buffer to price range
-    // Calculate auto-scale range
     const priceDiff = Math.max(maxPrice - minPrice, 1);
     const autoMin = Math.max(0, minPrice - priceDiff * 0.05);
     const autoMax = maxPrice + priceDiff * 0.05;
 
-    // Use manual domain if set, otherwise use auto-scale
     const finalMinPrice = priceDomain ? priceDomain[0] : autoMin;
     const finalMaxPrice = priceDomain ? priceDomain[1] : autoMax;
 
-    const getX = (t: number) => padding.left + ((t - domainMin) / (domainMax - domainMin || 1)) * innerWidth;
-    const getY = (p: number) => padding.top + innerHeight - ((p - finalMinPrice) / (finalMaxPrice - finalMinPrice || 1)) * innerHeight;
+    const getX = (t: number) => padding.left + ((t - domainMin) / (domainMax - domainMin || 1)) * innerWidthValue;
+    const getY = (p: number) => padding.top + innerHeightValue - ((p - finalMinPrice) / (finalMaxPrice - finalMinPrice || 1)) * innerHeightValue;
 
-    // Split into segments based on GAP_THRESHOLD_MS
+    // Split into segments
     const segments: HistoryPoint[][] = [];
-    let currentSegment: HistoryPoint[] = [visiblePoints[0]];
-
-    for (let i = 1; i < visiblePoints.length; i++) {
-      const prev = visiblePoints[i - 1];
-      const curr = visiblePoints[i];
-      if (curr.timestamp - prev.timestamp > GAP_THRESHOLD_MS) {
-        segments.push(currentSegment);
-        currentSegment = [curr];
-      } else {
-        currentSegment.push(curr);
+    if (visiblePoints.length > 0) {
+      let currentSegment: HistoryPoint[] = [visiblePoints[0]];
+      for (let i = 1; i < visiblePoints.length; i++) {
+        const prev = visiblePoints[i - 1];
+        const curr = visiblePoints[i];
+        if (curr.timestamp - prev.timestamp > GAP_THRESHOLD_MS) {
+          segments.push(currentSegment);
+          currentSegment = [curr];
+        } else {
+          currentSegment.push(curr);
+        }
       }
+      segments.push(currentSegment);
     }
-    segments.push(currentSegment);
 
     let pathDSell = '';
     let pathDBuy = '';
     let areaD = '';
 
     for (const seg of segments) {
-      if (seg.length === 0) continue;
+      if (seg.length < 1) continue;
       
-      // Buy Line
-      pathDBuy += `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
+      let segSell = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].sellPrice).toFixed(1)}`;
+      let segBuy = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
+      
       for (let i = 1; i < seg.length; i++) {
-        pathDBuy += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
+        segSell += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].sellPrice).toFixed(1)}`;
+        segBuy += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
       }
+      pathDSell += segSell;
+      pathDBuy += segBuy;
 
-      // Sell Line
-      pathDSell += `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].sellPrice).toFixed(1)}`;
-      for (let i = 1; i < seg.length; i++) {
-        pathDSell += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].sellPrice).toFixed(1)}`;
-      }
-
-      // Area
       let segArea = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
       for (let i = 1; i < seg.length; i++) {
         segArea += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
@@ -188,9 +180,11 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
       maxPrice: finalMaxPrice, 
       autoMin, autoMax,
       getX, getY, 
-      pathDSell, pathDBuy, areaD 
+      pathDSell, pathDBuy, areaD,
+      innerWidth: innerWidthValue,
+      innerHeight: innerHeightValue
     };
-  }, [sorted, innerWidth, innerHeight, domain]);
+  }, [sorted, dimensions.width, dimensions.height, domain, priceDomain]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();

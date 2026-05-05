@@ -10,11 +10,11 @@ interface ItemIconProps {
 
 export const getItemIconUrl = (productId: string, isShard: boolean = false) => {
   if (isShard) {
-    // Shard-specific URL from SkyShards repo
-    return `https://raw.githubusercontent.com/Campionnn/SkyShards/master/public/shardIcons/${productId}.png`;
+    // Use local shard icons first
+    return `/shardIcons/${productId}.png`;
   }
   
-  // Standard Bazaar item URL from SkyCrypt (shiiyu)
+  // Standard Bazaar item URL from SkyCrypt
   const cleanId = productId.replace(/(:[0-9]+)/g, ''); // Remove tier numbers if any
   return `https://sky.shiiyu.moe/item/${cleanId}`;
 };
@@ -25,6 +25,8 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
 
   useEffect(() => {
     setStatus('loading');
+    setSrc(null); // Reset src to avoid showing old image for new productId
+
     const primaryUrl = getItemIconUrl(productId, isShard);
     
     const img = new Image();
@@ -64,12 +66,15 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
         alignItems: 'center',
         justifyContent: 'center',
         position: 'relative',
+        borderRadius: '4px',
+        overflow: 'hidden',
+        background: status === 'loading' ? 'rgba(255,255,255,0.05)' : 'transparent',
         ...style
       }}
       title={title || productId}
     >
       {status === 'loading' && <div className="item-icon-placeholder" />}
-      {src && (
+      {src ? (
         <img 
           src={src} 
           alt={productId} 
@@ -78,10 +83,11 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
             width: '100%',
             height: '100%',
             objectFit: 'contain',
-            opacity: status === 'loaded' ? 1 : 0,
-            transition: 'opacity 0.2s ease-in-out'
+            display: status === 'loaded' ? 'block' : 'none'
           }}
         />
+      ) : (
+         status === 'error' && <div style={{ fontSize: '10px', color: 'var(--text-secondary)' }}>?</div>
       )}
     </div>
   );
