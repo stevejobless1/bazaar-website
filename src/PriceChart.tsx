@@ -488,7 +488,7 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
 
                 {showVolume && (
                   <g className="volume-bars">
-                    {parsedData.visibleVolume.map((v, i) => {
+                    {parsedData.visibleVolume.map((v) => {
                       const vx = parsedData.getX(v.timestamp);
                       const barWidth = Math.max(2, (parsedData.innerWidth / (parsedData.visibleVolume.length || 1)) * 0.8);
                       
