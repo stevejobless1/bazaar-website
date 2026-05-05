@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Search, Activity, TrendingUp, Radio } from 'lucide-react';
+import { Search, Activity, TrendingUp, Radio, LogOut } from 'lucide-react';
 import { fetchLatest, fetchUnifiedHistory, fetchLiveOrders, fetchMayors } from './api';
 import { ProductState, LiveOrderBook, HistoryPoint } from './types';
 import PriceChart from './PriceChart';
 import Flips from './Flips';
 import Status from './Status';
+import Login from './Login';
 
 import ItemIcon from './ItemIcon';
 
@@ -15,7 +16,7 @@ const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFracti
 
 // --- Components ---
 
-const Navbar = ({ products }: { products: ProductState[] }) => {
+const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: () => void }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const location = useLocation();
@@ -41,49 +42,53 @@ const Navbar = ({ products }: { products: ProductState[] }) => {
         Bazaar<span>Tracker</span>
       </Link>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginLeft: '2rem' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', marginLeft: '2rem' }}>
         <Link 
           to="/flips" 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            textDecoration: 'none', 
-            color: location.pathname === '/flips' ? 'var(--accent-color)' : 'var(--text-secondary)',
-            fontWeight: location.pathname === '/flips' ? 600 : 500,
-            transition: 'color 0.2s'
-          }}
+          className={`nav-link ${location.pathname === '/flips' ? 'active' : ''}`}
         >
           <TrendingUp size={18} />
           Flips
         </Link>
         <Link 
           to="/status" 
-          style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: '0.5rem', 
-            textDecoration: 'none', 
-            color: location.pathname === '/status' ? 'var(--accent-color)' : 'var(--text-secondary)',
-            fontWeight: location.pathname === '/status' ? 600 : 500,
-            transition: 'color 0.2s'
-          }}
+          className={`nav-link ${location.pathname === '/status' ? 'active' : ''}`}
         >
           <Radio size={18} />
           Status
         </Link>
       </div>
       
-      <form className="search-container" onSubmit={handleSearch} style={{ marginLeft: 'auto' }}>
-        <Search className="search-icon" size={18} />
-        <input 
-          type="text" 
-          className="search-input" 
-          placeholder="Search items (e.g. ENCHANTED_BONE)..."
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-        />
-      </form>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <form className="search-container" onSubmit={handleSearch}>
+          <Search className="search-icon" size={18} />
+          <input 
+            type="text" 
+            className="search-input" 
+            placeholder="Search items..."
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </form>
+        <button 
+          onClick={onLogout}
+          className="btn-icon" 
+          title="Logout"
+          style={{ 
+            background: 'rgba(255, 255, 255, 0.05)', 
+            border: '1px solid var(--border-color)',
+            color: 'var(--text-secondary)',
+            padding: '0.6rem',
+            borderRadius: '10px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }}
+        >
+          <LogOut size={18} />
+        </button>
+      </div>
     </nav>
   );
 };
@@ -97,17 +102,15 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
   if (loading) return <div className="loader-container"><div className="loader"></div></div>;
   if (error) return <div className="error-message">{error}</div>;
 
-  // Calculate profit metrics
   const enrichedProducts = products.map(p => {
     const margin = p.margin;
-    // Profit Velocity: Margin * daily volume (using min to represent actual trading throughput)
     const velocity = margin > 0 ? margin * Math.min(p.buyVolume, p.sellVolume) : 0;
     const marginPct = (margin / p.buyPrice) * 100 || 0;
     return { ...p, velocity, marginPct };
   });
 
   const displayProducts = activeTab === 'flips' 
-    ? [...enrichedProducts].sort((a, b) => b.velocity - a.velocity).slice(0, 100) // Top 100 flips
+    ? [...enrichedProducts].sort((a, b) => b.velocity - a.velocity).slice(0, 100)
     : [...enrichedProducts].sort((a, b) => b.sellVolume - a.sellVolume);
 
   return (
@@ -183,13 +186,11 @@ const ProductDetails = () => {
   const [mayors, setMayors] = useState<{ timestamp: number, name: string }[]>([]);
 
   useEffect(() => {
-    // Fetch latest stats for the side panel
     fetchLatest().then(data => {
       const match = data.find(p => p.productId === productId);
       if (match) setLatestStats(match);
     }).catch(console.error);
 
-    // Fetch live order book
     if (productId) {
       fetchLiveOrders(productId).then(data => {
         if (data.success) {
@@ -216,7 +217,6 @@ const ProductDetails = () => {
           setMayors(mayorsData);
         }
 
-        // Also refresh the side panel stats and orders
         fetchLatest().then(data => {
           const match = data.find(p => p.productId === productId);
           if (match) setLatestStats(match);
@@ -235,8 +235,6 @@ const ProductDetails = () => {
     };
 
     loadData();
-
-    // Auto-update every 20 seconds
     const interval = setInterval(() => loadData(true), 20000);
     return () => clearInterval(interval);
   }, [productId]);
@@ -257,14 +255,14 @@ const ProductDetails = () => {
       </div>
 
       <div className="detail-grid">
-        <div className="glass-panel chart-container">
+        <div className="glass-panel chart-container" style={{ height: '600px' }}>
           <div className="chart-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
             <div className="chart-title">Price History</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Unified continuous linear timeline</div>
           </div>
           {loading && <div className="loader-container" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(11, 14, 20, 0.5)', zIndex: 10 }}><div className="loader"></div></div>}
           {error && <div className="error-message">{error}</div>}
-          <div style={{ width: '100%', height: '500px' }}>
+          <div style={{ width: '100%', height: 'calc(100% - 60px)' }}>
             {!loading && !error && historyPoints.length > 0 && <PriceChart key={productId} data={historyPoints} mayors={mayors} />}
           </div>
         </div>
@@ -305,7 +303,6 @@ const ProductDetails = () => {
             )}
           </div>
 
-          {/* Flipper Insights */}
           {latestStats && latestStats.buyPrice > 0 && (
             <div className="glass-panel stat-card" style={{ borderLeft: '3px solid #e3b341' }}>
               <div className="stat-label" style={{ color: '#e3b341', fontWeight: 600 }}>Flipper Insights</div>
@@ -336,7 +333,6 @@ const ProductDetails = () => {
         </div>
       </div>
 
-      {/* Order Book Section */}
       {liveOrders && (
         <div className="glass-panel" style={{ marginTop: '2rem' }}>
           <h3 style={{ marginBottom: '1rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -344,7 +340,6 @@ const ProductDetails = () => {
             Live Order Book
           </h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '2rem' }}>
-            {/* Buy Orders (Bids) */}
             <div>
               <h4 style={{ color: '#3fb950', marginBottom: '0.75rem', fontWeight: 600 }}>Top Buy Orders (Bids)</h4>
               <table className="data-table" style={{ fontSize: '0.85rem' }}>
@@ -367,7 +362,6 @@ const ProductDetails = () => {
               </table>
             </div>
 
-            {/* Sell Orders (Asks) */}
             <div>
               <h4 style={{ color: '#f85149', marginBottom: '0.75rem', fontWeight: 600 }}>Top Sell Offers (Asks)</h4>
               <table className="data-table" style={{ fontSize: '0.85rem' }}>
@@ -402,8 +396,14 @@ function App() {
   const [products, setProducts] = useState<ProductState[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  const [isAuthed, setIsAuthed] = useState<boolean>(() => {
+    return localStorage.getItem('bt_auth') === 'true';
+  });
+  const [loginError, setLoginError] = useState<string | undefined>();
 
   useEffect(() => {
+    if (!isAuthed) return;
     fetchLatest()
       .then(data => {
         setProducts(data);
@@ -413,17 +413,38 @@ function App() {
         setError(err.message);
         setLoading(false);
       });
-  }, []);
+  }, [isAuthed]);
+
+  const handleLogin = (password: string) => {
+    if (password === 'fusion' || password === 'fusion-2024') {
+      localStorage.setItem('bt_auth', 'true');
+      setIsAuthed(true);
+      setLoginError(undefined);
+    } else {
+      setLoginError('Invalid access key. Please try again.');
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('bt_auth');
+    setIsAuthed(false);
+  };
+
+  if (!isAuthed) {
+    return <Login onLogin={handleLogin} error={loginError} />;
+  }
 
   return (
     <div className="app-container">
-      <Navbar products={products} />
-      <Routes>
-        <Route path="/" element={<Home products={products} loading={loading} error={error} />} />
-        <Route path="/flips" element={<Flips products={products} loading={loading} error={error} />} />
-        <Route path="/status" element={<Status />} />
-        <Route path="/item/:productId" element={<ProductDetails />} />
-      </Routes>
+      <Navbar products={products} onLogout={handleLogout} />
+      <div className="page-wrapper">
+        <Routes>
+          <Route path="/" element={<Home products={products} loading={loading} error={error} />} />
+          <Route path="/flips" element={<Flips products={products} loading={loading} error={error} />} />
+          <Route path="/status" element={<Status />} />
+          <Route path="/item/:productId" element={<ProductDetails />} />
+        </Routes>
+      </div>
     </div>
   );
 }

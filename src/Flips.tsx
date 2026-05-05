@@ -258,37 +258,54 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
             </div>
             
             <div style={{ padding: '2rem', overflowY: 'auto', background: 'rgba(13, 17, 23, 0.4)', flex: 1 }}>
-              <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
-                <Info size={16} />
-                <span style={{ fontSize: '0.9rem' }}>Optimal recursive path. <b>Buy</b> nodes are Bazaar purchases, <b>Craft</b> nodes are fusions.</span>
+              <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-secondary)' }}>
+                  <Info size={16} />
+                  <span style={{ fontSize: '0.9rem' }}>Optimal recursive path. <b>Buy</b> nodes are Bazaar purchases, <b>Craft</b> nodes are fusions.</span>
+                </div>
+                <div className="profit-badge-large" style={{ 
+                  background: 'rgba(0, 229, 255, 0.1)', 
+                  border: '1px solid var(--accent-color)',
+                  color: 'var(--accent-color)',
+                  padding: '0.5rem 1rem',
+                  borderRadius: '12px',
+                  fontWeight: 800,
+                  fontSize: '1rem'
+                }}>
+                  {formatCompact(selectedFlip.maxProfitHr)}/hr
+                </div>
               </div>
               
-              <FusionTree 
-                targetId={selectedFlip.targetId} 
-                quantity={1} 
-                fusionData={fusionData} 
-                effectivePrices={effectivePrices}
-                isRoot={true}
-              />
+              <div style={{ paddingLeft: '0.5rem', borderLeft: '2px solid rgba(255,255,255,0.05)', marginLeft: '0.5rem' }}>
+                <h4 style={{ color: 'var(--text-secondary)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '2px', marginBottom: '1.5rem' }}>Recipe Path</h4>
+                <FusionTree 
+                  targetId={selectedFlip.targetId} 
+                  quantity={1} 
+                  fusionData={fusionData} 
+                  effectivePrices={effectivePrices}
+                  isRoot={true}
+                />
+              </div>
 
               <div style={{ marginTop: '2.5rem', padding: '1.5rem', borderRadius: '12px', background: 'rgba(63, 185, 80, 0.05)', border: '1px solid rgba(63, 185, 80, 0.1)' }}>
                 <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '1rem' }}>Economic Outlook (Per Hr)</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1.5rem' }}>
-                  <div>
+                  <div className="outlook-stat">
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Sales Velocity</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>{selectedFlip.salesPerHour.toFixed(1)} units / hr</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 600 }}>{selectedFlip.salesPerHour.toFixed(1)} <span style={{ fontSize: '0.8rem', opacity: 0.6 }}>units</span></div>
                   </div>
-                  <div>
+                  <div className="outlook-stat">
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Potential Revenue</div>
-                    <div style={{ fontSize: '1.1rem', fontWeight: 600, fontFamily: 'monospace' }}>{formatCompact(selectedFlip.sellPrice * selectedFlip.salesPerHour)}</div>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 600, fontFamily: 'monospace' }}>{formatCompact(selectedFlip.sellPrice * selectedFlip.salesPerHour)}</div>
                   </div>
-                  <div>
+                  <div className="outlook-stat">
                     <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Potential Profit</div>
-                    <div style={{ fontSize: '1.25rem', fontWeight: 800, color: '#3fb950', fontFamily: 'monospace' }}>+{formatCompact(selectedFlip.maxProfitHr)}</div>
+                    <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#3fb950', fontFamily: 'monospace' }}>+{formatCompact(selectedFlip.maxProfitHr)}</div>
                   </div>
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       )}

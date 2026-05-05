@@ -18,7 +18,7 @@ const formatTime = (ts: number) => {
 };
 
 const GAP_THRESHOLD_MS = 48 * 60 * 60 * 1000; // 48 hours
-const padding = { top: 30, right: 20, bottom: 40, left: 60 };
+const padding = { top: 40, right: 30, bottom: 60, left: 90 };
 
 interface PriceChartProps {
   data: HistoryPoint[];
@@ -151,18 +151,30 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
     let areaD = '';
 
     for (const seg of segments) {
-      if (seg.length < 1) continue;
+      if (seg.length < 2) {
+        // For single points, draw a small horizontal line so they are visible
+        if (seg.length === 1) {
+          const x = getX(seg[0].timestamp);
+          const ySell = getY(seg[0].sellPrice);
+          const yBuy = getY(seg[0].buyPrice);
+          pathDSell += `M ${x-1} ${ySell} L ${x+1} ${ySell} `;
+          pathDBuy += `M ${x-1} ${yBuy} L ${x+1} ${yBuy} `;
+        }
+        continue;
+      }
       
       let segSell = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].sellPrice).toFixed(1)}`;
       let segBuy = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
       
       for (let i = 1; i < seg.length; i++) {
-        segSell += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].sellPrice).toFixed(1)}`;
-        segBuy += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
+        const x = getX(seg[i].timestamp).toFixed(1);
+        segSell += ` L ${x} ${getY(seg[i].sellPrice).toFixed(1)}`;
+        segBuy += ` L ${x} ${getY(seg[i].buyPrice).toFixed(1)}`;
       }
-      pathDSell += segSell;
-      pathDBuy += segBuy;
+      pathDSell += segSell + ' ';
+      pathDBuy += segBuy + ' ';
 
+      // Area fill: trace buy path forward, then sell path backward
       let segArea = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
       for (let i = 1; i < seg.length; i++) {
         segArea += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
@@ -170,8 +182,8 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
       for (let i = seg.length - 1; i >= 0; i--) {
         segArea += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].sellPrice).toFixed(1)}`;
       }
-      segArea += ' Z ';
-      areaD += segArea;
+      segArea += ' Z';
+      areaD += segArea + ' ';
     }
 
     return { 
@@ -180,10 +192,13 @@ export default function PriceChart({ data, mayors = [] }: PriceChartProps) {
       maxPrice: finalMaxPrice, 
       autoMin, autoMax,
       getX, getY, 
-      pathDSell, pathDBuy, areaD,
+      pathDSell: pathDSell.trim(), 
+      pathDBuy: pathDBuy.trim(), 
+      areaD: areaD.trim(),
       innerWidth: innerWidthValue,
       innerHeight: innerHeightValue
     };
+
   }, [sorted, dimensions.width, dimensions.height, domain, priceDomain]);
 
   const handleWheel = useCallback((e: WheelEvent) => {

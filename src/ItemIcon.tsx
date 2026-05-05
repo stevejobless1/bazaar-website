@@ -25,9 +25,16 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
 
   useEffect(() => {
     setStatus('loading');
-    setSrc(null); // Reset src to avoid showing old image for new productId
+    
+    // Sanitize ID for local file system (e.g. SHARD:4 -> SHARD_4)
+    const sanitizeId = (id: string) => id.replace(/:/g, '_').toUpperCase();
+    
+    const getUrl = (pid: string, shard: boolean) => {
+      if (shard) return `/shardIcons/${sanitizeId(pid)}.png`;
+      return `https://sky.shiiyu.moe/item/${pid.split(':')[0]}`;
+    };
 
-    const primaryUrl = getItemIconUrl(productId, isShard);
+    const primaryUrl = getUrl(productId, isShard);
     
     const img = new Image();
     img.src = primaryUrl;
@@ -36,9 +43,8 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
       setStatus('loaded');
     };
     img.onerror = () => {
-      // If shard icon fails, try the standard item icon as backup
       if (isShard) {
-        const backupUrl = getItemIconUrl(productId, false);
+        const backupUrl = getUrl(productId, false);
         const backupImg = new Image();
         backupImg.src = backupUrl;
         backupImg.onload = () => {
@@ -55,6 +61,7 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
       }
     };
   }, [productId, isShard]);
+
 
   return (
     <div 
