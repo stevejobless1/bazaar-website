@@ -77,3 +77,12 @@ export const fetchMayors = async (start: number, end: number): Promise<{ timesta
     name: m.name
   }));
 };
+
+export const fetchVolumeHistory = async (productId: string, start?: number, end?: number, interval: number = 3600000): Promise<{timestamp: number, buyVolume: number, sellVolume: number}[]> => {
+  const s = start || (Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const e = end || Date.now();
+  const res = await fetch(`${API_BASE}/bazaar/volume/${productId}?start=${s}&end=${e}&interval=${interval}`);
+  if (!res.ok) throw new Error('Failed to fetch volume history');
+  const json = await res.json();
+  return json.data || [];
+};
