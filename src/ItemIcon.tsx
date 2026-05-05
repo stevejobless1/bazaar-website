@@ -11,12 +11,12 @@ interface ItemIconProps {
 export const getItemIconUrl = (productId: string, isShard: boolean = false) => {
   if (isShard) {
     // Use local shard icons first
-    return `/shardIcons/${productId}.png`;
+    const sanitizeId = (id: string) => id.replace(/:/g, '_').toUpperCase();
+    return `/shardIcons/${sanitizeId(productId)}.png`;
   }
   
-  // Standard Bazaar item URL from SkyCrypt
-  const cleanId = productId.replace(/(:[0-9]+)/g, ''); // Remove tier numbers if any
-  return `https://sky.shiiyu.moe/item/${cleanId}`;
+  // Standard Bazaar item URL from Coflnet
+  return `https://sky.coflnet.com/static/icon/${productId}`;
 };
 
 const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, className, style, title }) => {
@@ -31,7 +31,8 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
     
     const getUrl = (pid: string, shard: boolean) => {
       if (shard) return `/shardIcons/${sanitizeId(pid)}.png`;
-      return `https://sky.shiiyu.moe/item/${pid.split(':')[0]}`;
+      // Use coflnet for all bazaar items as requested
+      return `https://sky.coflnet.com/static/icon/${pid}`;
     };
 
     const primaryUrl = getUrl(productId, isShard);
@@ -43,8 +44,9 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
       setStatus('loaded');
     };
     img.onerror = () => {
+      // Fallback for shards if local icon is missing
       if (isShard) {
-        const backupUrl = getUrl(productId, false);
+        const backupUrl = `https://sky.coflnet.com/static/icon/${productId}`;
         const backupImg = new Image();
         backupImg.src = backupUrl;
         backupImg.onload = () => {
@@ -52,11 +54,11 @@ const ItemIcon: React.FC<ItemIconProps> = ({ productId, isShard = false, classNa
           setStatus('loaded');
         };
         backupImg.onerror = () => {
-          setSrc('https://sky.shiiyu.moe/item/STONE');
+          setSrc('https://sky.coflnet.com/static/icon/STONE');
           setStatus('error');
         };
       } else {
-        setSrc('https://sky.shiiyu.moe/item/STONE');
+        setSrc('https://sky.coflnet.com/static/icon/STONE');
         setStatus('error');
       }
     };
