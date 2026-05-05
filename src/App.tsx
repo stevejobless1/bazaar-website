@@ -135,8 +135,8 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
           <thead>
             <tr>
               <th>Product</th>
-              <th>Buy Price</th>
-              <th>Sell Price</th>
+              <th>Buy Order</th>
+              <th>Sell Offer</th>
               <th>Margin</th>
               {activeTab === 'flips' ? <th>Profit Velocity</th> : <th>Volume</th>}
             </tr>
@@ -153,8 +153,8 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
                       {p.productId.replace(/_/g, ' ')}
                     </div>
                   </td>
-                  <td title={formatCommas(p.buyPrice)}>{formatCompact(p.buyPrice)} coins</td>
                   <td title={formatCommas(p.sellPrice)}>{formatCompact(p.sellPrice)} coins</td>
+                  <td title={formatCommas(p.buyPrice)}>{formatCompact(p.buyPrice)} coins</td>
                   <td className={p.margin >= 0 ? 'positive' : 'negative'} title={formatCommas(p.margin)}>
                     {formatCompact(p.margin)} ({p.marginPct.toFixed(2)}%)
                   </td>
@@ -260,7 +260,7 @@ const ProductDetails = () => {
       </div>
 
       <div className="detail-grid">
-        <div className="glass-panel chart-container" style={{ height: '600px' }}>
+        <div className="glass-panel chart-container" style={{ height: '900px' }}>
           <div className="chart-header" style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '0.5rem', marginBottom: '1rem' }}>
             <div className="chart-title">Price History</div>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Unified continuous linear timeline</div>
@@ -281,22 +281,22 @@ const ProductDetails = () => {
 
         <div className="stats-sidebar">
           <div className="glass-panel stat-card">
-            <div className="stat-label">Current Sell Price</div>
-            <div className="stat-value" title={latestStats ? formatCommas(latestStats.sellPrice) : ''}>
-              {latestStats?.sellPrice ? formatCompact(latestStats.sellPrice) : '---'}
-            </div>
-            <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-              Sell Volume: <span title={latestStats ? formatCommas(latestStats.sellVolume) : ''}>{latestStats?.sellVolume ? formatCompact(latestStats.sellVolume) : '---'}</span>
-            </div>
-          </div>
-          
-          <div className="glass-panel stat-card">
-            <div className="stat-label">Current Buy Price</div>
+            <div className="stat-label">Current Sell Offer</div>
             <div className="stat-value" title={latestStats ? formatCommas(latestStats.buyPrice) : ''}>
               {latestStats?.buyPrice ? formatCompact(latestStats.buyPrice) : '---'}
             </div>
             <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
-              Buy Volume: <span title={latestStats ? formatCommas(latestStats.buyVolume) : ''}>{latestStats?.buyVolume ? formatCompact(latestStats.buyVolume) : '---'}</span>
+              Filled Sell Offers: <span title={latestStats ? formatCommas(latestStats.buyVolume) : ''}>{latestStats?.buyVolume ? formatCompact(latestStats.buyVolume) : '---'}</span>
+            </div>
+          </div>
+          
+          <div className="glass-panel stat-card">
+            <div className="stat-label">Current Buy Order</div>
+            <div className="stat-value" title={latestStats ? formatCommas(latestStats.sellPrice) : ''}>
+              {latestStats?.sellPrice ? formatCompact(latestStats.sellPrice) : '---'}
+            </div>
+            <div className="stat-label" style={{ marginTop: '0.5rem', color: 'var(--text-secondary)', fontSize: '0.75rem' }}>
+              Filled Buy Orders: <span title={latestStats ? formatCommas(latestStats.sellVolume) : ''}>{latestStats?.sellVolume ? formatCompact(latestStats.sellVolume) : '---'}</span>
             </div>
           </div>
 
@@ -410,7 +410,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   
   const [isAuthed, setIsAuthed] = useState<boolean>(() => {
-    return localStorage.getItem('bt_auth') === 'true';
+    return localStorage.getItem('bt_auth') === 'true' || document.cookie.includes('bt_auth=true');
   });
   const [loginError, setLoginError] = useState<string | undefined>();
 
@@ -431,6 +431,11 @@ function App() {
     const validPassword = import.meta.env.VITE_DASHBOARD_PASSWORD || 'fusion';
     if (password === validPassword || password === 'fusion-2024') {
       localStorage.setItem('bt_auth', 'true');
+      // Set a cookie that lasts for 30 days
+      const d = new Date();
+      d.setTime(d.getTime() + (30*24*60*60*1000));
+      document.cookie = `bt_auth=true; expires=${d.toUTCString()}; path=/`;
+      
       setIsAuthed(true);
       setLoginError(undefined);
     } else {
@@ -440,6 +445,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('bt_auth');
+    document.cookie = "bt_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     setIsAuthed(false);
   };
 
@@ -450,7 +456,7 @@ function App() {
   return (
     <div className="app-container">
       <Navbar products={products} onLogout={handleLogout} />
-      <div className="page-wrapper">
+      <div className="page-wrapper" style={{ paddingTop: '20px' }}>
         <Routes>
           <Route path="/" element={<Home products={products} loading={loading} error={error} />} />
           <Route path="/flips" element={<Flips products={products} loading={loading} error={error} />} />

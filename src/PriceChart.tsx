@@ -17,7 +17,7 @@ const formatTime = (ts: number) => {
   }
 };
 
-const GAP_THRESHOLD_MS = 48 * 60 * 60 * 1000; // 48 hours
+const GAP_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12 hours
 const padding = { top: 40, right: 30, bottom: 60, left: 90 };
 
 interface PriceChartProps {
@@ -32,8 +32,8 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
   const [hover, setHover] = useState<{ x: number, y: number, point: HistoryPoint, volumePoint?: any } | null>(null);
 
   // Toggle states
-  const [showBuy, setShowBuy] = useState(true);
-  const [showSell, setShowSell] = useState(true);
+  const [showBuyOrders, setShowBuyOrders] = useState(true); // Pink
+  const [showSellOffers, setShowSellOffers] = useState(true); // Cyan
   const [showMayors, setShowMayors] = useState(true);
   const [showVolume, setShowVolume] = useState(true);
 
@@ -84,7 +84,7 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
   const chartHeight = Math.max(0, height - 40); 
   const innerWidth = Math.max(0, width - padding.left - padding.right);
   const innerHeight = Math.max(0, chartHeight - padding.top - padding.bottom);
-  const volumeHeightMax = 80;
+  const volumeHeightMax = 120;
 
   const sorted = useMemo(() => {
     if (!data || data.length === 0) return [];
@@ -119,10 +119,10 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
     const visiblePoints = sorted.filter(p => p.timestamp >= domainMin && p.timestamp <= domainMax);
     
     for (const p of visiblePoints) {
-      if (showBuy && p.buyPrice < minPrice) minPrice = p.buyPrice;
-      if (showSell && p.sellPrice < minPrice) minPrice = p.sellPrice;
-      if (showBuy && p.buyPrice > maxPrice) maxPrice = p.buyPrice;
-      if (showSell && p.sellPrice > maxPrice) maxPrice = p.sellPrice;
+      if (showBuyOrders && p.sellPrice < minPrice) minPrice = p.sellPrice;
+      if (showSellOffers && p.buyPrice < minPrice) minPrice = p.buyPrice;
+      if (showBuyOrders && p.sellPrice > maxPrice) maxPrice = p.sellPrice;
+      if (showSellOffers && p.buyPrice > maxPrice) maxPrice = p.buyPrice;
     }
 
     if (minPrice === Infinity) {
@@ -137,8 +137,14 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
     const finalMinPrice = priceDomain ? priceDomain[0] : autoMin;
     const finalMaxPrice = priceDomain ? priceDomain[1] : autoMax;
 
-    const getX = (t: number) => padding.left + ((t - domainMin) / (domainMax - domainMin || 1)) * innerWidthValue;
-    const getY = (p: number) => padding.top + innerHeightValue - ((p - finalMinPrice) / (finalMaxPrice - finalMinPrice || 1)) * innerHeightValue;
+    const getX = (t: number) => {
+      const val = padding.left + ((t - domainMin) / (domainMax - domainMin || 1)) * innerWidthValue;
+      return isFinite(val) ? val : 0;
+    };
+    const getY = (p: number) => {
+      const val = padding.top + innerHeightValue - ((p - finalMinPrice) / (finalMaxPrice - finalMinPrice || 1)) * innerHeightValue;
+      return isFinite(val) ? val : 0;
+    };
 
     // Volume processing
     const visibleVolume = sortedVolume.filter(v => v.timestamp >= domainMin && v.timestamp <= domainMax);
@@ -169,23 +175,23 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
     for (const seg of segments) {
       if (seg.length < 1) continue;
       
-      if (showSell) {
-        let segSell = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].sellPrice).toFixed(1)}`;
+      if (showSellOffers) {
+        let segSell = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
         for (let i = 1; i < seg.length; i++) {
-          segSell += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].sellPrice).toFixed(1)}`;
+          segSell += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
         }
         pathDSell += segSell + ' ';
       }
 
-      if (showBuy) {
-        let segBuy = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
+      if (showBuyOrders) {
+        let segBuy = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].sellPrice).toFixed(1)}`;
         for (let i = 1; i < seg.length; i++) {
-          segBuy += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
+          segBuy += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].sellPrice).toFixed(1)}`;
         }
         pathDBuy += segBuy + ' ';
       }
 
-      if (showBuy && showSell && seg.length >= 2) {
+      if (showBuyOrders && showSellOffers && seg.length >= 2) {
         let segArea = `M ${getX(seg[0].timestamp).toFixed(1)} ${getY(seg[0].buyPrice).toFixed(1)}`;
         for (let i = 1; i < seg.length; i++) {
           segArea += ` L ${getX(seg[i].timestamp).toFixed(1)} ${getY(seg[i].buyPrice).toFixed(1)}`;
@@ -229,7 +235,7 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
       filteredMayors
     };
 
-  }, [sorted, sortedVolume, dimensions.width, dimensions.height, domain, priceDomain, showBuy, showSell, showMayors]);
+  }, [sorted, sortedVolume, dimensions.width, dimensions.height, domain, priceDomain, showBuyOrders, showSellOffers, showMayors]);
 
   const handleWheel = useCallback((e: WheelEvent) => {
     e.preventDefault();
@@ -351,7 +357,7 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
 
       setHover({
         x: parsedData.getX(bestPt.timestamp),
-        y: parsedData.getY(bestPt.sellPrice),
+        y: showSellOffers ? parsedData.getY(bestPt.buyPrice) : (showBuyOrders ? parsedData.getY(bestPt.sellPrice) : 0),
         point: bestPt,
         volumePoint: volPt
       });
@@ -411,23 +417,71 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
               ))}
             </div>
 
-            <div style={{ display: 'flex', gap: '8px', padding: '0 12px', borderLeft: '1px solid var(--border-color)' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', color: showBuy ? '#ff00a0' : 'var(--text-secondary)' }}>
-                <input type="checkbox" checked={showBuy} onChange={e => setShowBuy(e.target.checked)} style={{ accentColor: '#ff00a0' }} />
-                Buy
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', color: showSell ? '#00e5ff' : 'var(--text-secondary)' }}>
-                <input type="checkbox" checked={showSell} onChange={e => setShowSell(e.target.checked)} style={{ accentColor: '#00e5ff' }} />
-                Sell
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', color: showMayors ? '#e3b341' : 'var(--text-secondary)' }}>
-                <input type="checkbox" checked={showMayors} onChange={e => setShowMayors(e.target.checked)} style={{ accentColor: '#e3b341' }} />
+            <div style={{ display: 'flex', gap: '12px', padding: '0 12px', borderLeft: '1px solid var(--border-color)' }}>
+              <button 
+                onClick={() => setShowSellOffers(!showSellOffers)}
+                style={{
+                  background: showSellOffers ? 'rgba(0, 229, 255, 0.15)' : 'transparent',
+                  border: `1px solid ${showSellOffers ? '#00e5ff' : 'var(--border-color)'}`,
+                  color: showSellOffers ? '#00e5ff' : 'var(--text-secondary)',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Sell Offer
+              </button>
+              <button 
+                onClick={() => setShowBuyOrders(!showBuyOrders)}
+                style={{
+                  background: showBuyOrders ? 'rgba(255, 0, 160, 0.15)' : 'transparent',
+                  border: `1px solid ${showBuyOrders ? '#ff00a0' : 'var(--border-color)'}`,
+                  color: showBuyOrders ? '#ff00a0' : 'var(--text-secondary)',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Buy Order
+              </button>
+              <button 
+                onClick={() => setShowMayors(!showMayors)}
+                style={{
+                  background: showMayors ? 'rgba(227, 179, 65, 0.15)' : 'transparent',
+                  border: `1px solid ${showMayors ? '#e3b341' : 'var(--border-color)'}`,
+                  color: showMayors ? '#e3b341' : 'var(--text-secondary)',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
                 Mayors
-              </label>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', color: showVolume ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
-                <input type="checkbox" checked={showVolume} onChange={e => setShowVolume(e.target.checked)} />
+              </button>
+              <button 
+                onClick={() => setShowVolume(!showVolume)}
+                style={{
+                  background: showVolume ? 'rgba(0, 229, 255, 0.15)' : 'transparent',
+                  border: `1px solid ${showVolume ? 'var(--accent-color)' : 'var(--border-color)'}`,
+                  color: showVolume ? 'var(--accent-color)' : 'var(--text-secondary)',
+                  padding: '4px 12px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+              >
                 Volume
-              </label>
+              </button>
             </div>
 
             <div style={{ flex: 1 }} />
@@ -482,48 +536,60 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
               })}
 
               <g clipPath="url(#chart-area-clip)">
-                {showBuy && showSell && <path d={parsedData.areaD} fill="url(#margin-gradient)" />}
-                {showBuy && <path d={parsedData.pathDBuy} fill="none" stroke="#ff00a0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
-                {showSell && <path d={parsedData.pathDSell} fill="none" stroke="#00e5ff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+                {showBuyOrders && showSellOffers && <path d={parsedData.areaD} fill="url(#margin-gradient)" />}
+                {showBuyOrders && <path d={parsedData.pathDBuy} fill="none" stroke="#ff00a0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
+                {showSellOffers && <path d={parsedData.pathDSell} fill="none" stroke="#00e5ff" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />}
 
                 {showVolume && (
                   <g className="volume-bars">
                     {parsedData.visibleVolume.map((v) => {
                       const vx = parsedData.getX(v.timestamp);
-                      const barWidth = Math.max(2, (parsedData.innerWidth / (parsedData.visibleVolume.length || 1)) * 0.8);
+                      const barWidth = Math.min(20, Math.max(4, (parsedData.innerWidth / (parsedData.visibleVolume.length || 1)) * 0.7));
                       
-                      // buyVolume (people buying from bazaar, filling sell orders) -> CYAN
-                      // sellVolume (people selling to bazaar, filling buy orders) -> PINK
-                      const totalVol = v.buyVolume + v.sellVolume || 1;
+                      const totalVol = v.buyVolume + v.sellVolume;
+                      if (totalVol <= 0) return null;
+
                       const totalVolY = parsedData.getVolY(totalVol);
                       const chartBottom = padding.top + parsedData.innerHeight;
+                      const totalH = Math.max(1, chartBottom - totalVolY);
                       
-                      const buyPartH = (v.buyVolume / totalVol) * (chartBottom - totalVolY);
-                      const sellPartH = (v.sellVolume / totalVol) * (chartBottom - totalVolY);
+                      const buyPartH = (v.buyVolume / totalVol) * totalH;
+                      const sellPartH = (v.sellVolume / totalVol) * totalH;
                       
                       return (
                         <g key={`vol-${v.timestamp}`}>
-                          {/* Sell Volume (filling buy orders) - PINK */}
+                          {/* Insta-Sell (filling Buy Orders) - VIVID PINK */}
                           <rect 
                             x={vx - barWidth/2} 
                             y={chartBottom - sellPartH} 
                             width={barWidth} 
-                            height={sellPartH} 
-                            fill="rgba(255, 0, 160, 0.3)" 
+                            height={Math.max(0.5, sellPartH)} 
+                            fill="#ff00a0" 
+                            fillOpacity="0.4"
+                            stroke="#ff00a0"
+                            strokeOpacity="0.8"
+                            strokeWidth="1"
                             rx="1"
                           />
-                          {/* Buy Volume (filling sell orders) - CYAN */}
+                          {/* Insta-Buy (filling Sell Offers) - VIVID CYAN */}
                           <rect 
                             x={vx - barWidth/2} 
                             y={chartBottom - sellPartH - buyPartH} 
                             width={barWidth} 
-                            height={buyPartH} 
-                            fill="rgba(0, 229, 255, 0.4)" 
+                            height={Math.max(0.5, buyPartH)} 
+                            fill="#00e5ff" 
+                            fillOpacity="0.6"
+                            stroke="#00e5ff"
+                            strokeOpacity="0.8"
+                            strokeWidth="1"
                             rx="1"
                           />
                         </g>
                       );
                     })}
+                    {/* Volume Guide Labels */}
+                    <text x={padding.left + 5} y={padding.top + parsedData.innerHeight - volumeHeightMax + 12} fill="rgba(0, 229, 255, 0.4)" fontSize="10" fontWeight="bold">INSTA-BUYS (CYAN)</text>
+                    <text x={padding.left + 5} y={padding.top + parsedData.innerHeight - volumeHeightMax + 24} fill="rgba(255, 0, 160, 0.4)" fontSize="10" fontWeight="bold">INSTA-SELLS (PINK)</text>
                   </g>
                 )}
 
@@ -543,8 +609,8 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
                 {!isDragging.current && hover && hover.x >= padding.left && hover.x <= padding.left + innerWidth && (
                   <g>
                     <line x1={hover.x} y1={padding.top} x2={hover.x} y2={padding.top + parsedData.innerHeight} stroke="rgba(255, 255, 255, 0.3)" strokeWidth="1" />
-                    {showBuy && <circle cx={hover.x} cy={parsedData.getY(hover.point.buyPrice)} r="5" fill="#0b0e14" stroke="#ff00a0" strokeWidth="2" />}
-                    {showSell && <circle cx={hover.x} cy={parsedData.getY(hover.point.sellPrice)} r="5" fill="#0b0e14" stroke="#00e5ff" strokeWidth="2" />}
+                    {showBuyOrders && <circle cx={hover.x} cy={parsedData.getY(hover.point.sellPrice)} r="5" fill="#0b0e14" stroke="#ff00a0" strokeWidth="2" />}
+                    {showSellOffers && <circle cx={hover.x} cy={parsedData.getY(hover.point.buyPrice)} r="5" fill="#0b0e14" stroke="#00e5ff" strokeWidth="2" />}
                   </g>
                 )}
               </g>
@@ -574,13 +640,13 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
                 </div>
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Buy Price</span>
-                  <span style={{ fontWeight: 'bold', color: '#ff00a0' }}>{formatCommas(hover.point.buyPrice)}</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Sell Offer (Cyan)</span>
+                  <span style={{ fontWeight: 'bold', color: '#00e5ff' }}>{formatCommas(hover.point.buyPrice)}</span>
                 </div>
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Sell Price</span>
-                  <span style={{ fontWeight: 'bold', color: '#00e5ff' }}>{formatCommas(hover.point.sellPrice)}</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Buy Order (Pink)</span>
+                  <span style={{ fontWeight: 'bold', color: '#ff00a0' }}>{formatCommas(hover.point.sellPrice)}</span>
                 </div>
 
                 {hover.volumePoint && (
@@ -601,7 +667,7 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
                 )}
       
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px', paddingTop: '6px', borderTop: '1px dashed var(--border-color)' }}>
-                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Margin</span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>Spread</span>
                   <span style={{ fontWeight: 'bold', color: hover.point.buyPrice - hover.point.sellPrice > 0 ? '#3fb950' : '#f85149', fontSize: '0.9rem' }}>
                     {formatCommas(hover.point.buyPrice - hover.point.sellPrice)}
                   </span>

@@ -111,15 +111,15 @@ const FusionTree: React.FC<FusionTreeProps> = ({ targetId, quantity, fusionData,
           <div style={{ width: '16px' }} />
         )}
 
-        <ItemIcon productId={targetId} isShard={true} style={{ width: '32px', height: '32px' }} />
+        <ItemIcon productId={targetId} style={{ width: '32px', height: '32px' }} />
         
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ color: 'var(--text-secondary)' }}>{quantity}x</span>
             <span className="truncate">{shard.name}</span>
             {source === 'bazaar' ? (
-              <span className="source-badge bazaar" title="Buy from Bazaar">
-                <ShoppingCart size={10} /> Buy
+              <span className="source-badge bazaar" title="Acquire from Bazaar">
+                <ShoppingCart size={10} /> {source === 'bazaar' ? 'Bazaar' : 'Craft'}
               </span>
             ) : (
               <span className="source-badge craft" title="Better to Craft">

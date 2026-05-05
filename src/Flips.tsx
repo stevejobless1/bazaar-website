@@ -20,6 +20,8 @@ interface DetailedFlip {
   name: string;
   craftCost: number;
   sellPrice: number;
+  buyOrderPrice: number;
+  sellOfferPrice: number;
   profit: number;
   margin: number;
   salesPerHour: number;
@@ -37,7 +39,7 @@ const calculatePrices = (fusionData: FusionData, productMap: Map<string, Product
   for (const [shardId, shard] of Object.entries(shards)) {
     const prod = productMap.get(shard.internal_id);
     if (prod) {
-      const price = buyStrategy === 'insta' ? prod.sellPrice : prod.buyPrice;
+      const price = buyStrategy === 'insta' ? prod.buyPrice : prod.sellPrice;
       prices.set(shardId, { price, source: 'bazaar' });
     } else {
       prices.set(shardId, { price: Infinity, source: 'bazaar' });
@@ -116,7 +118,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
       if (!bestPriceData || bestPriceData.source === 'bazaar') continue;
 
       const craftCost = bestPriceData.price;
-      const sellPrice = (sellStrategy === 'insta' ? targetProd.buyPrice : targetProd.sellPrice) * 0.9875;
+      const sellPrice = (sellStrategy === 'insta' ? targetProd.sellPrice : targetProd.buyPrice) * 0.9875;
       const profit = sellPrice - craftCost;
       const margin = (profit / sellPrice) * 100;
       const salesPerHour = targetProd.buyMovingWeek / 168;
@@ -127,13 +129,15 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
           targetId,
           name: targetShard.name,
           craftCost,
-          sellPrice,
+          sellPrice, // The strategy-based price
+          buyOrderPrice: targetProd.sellPrice,
+          sellOfferPrice: targetProd.buyPrice,
           profit,
           margin,
           salesPerHour,
           maxProfitHr,
-          ingredients: [], // Used by the tree
-          ingredientSources: [] // Used by the tree
+          ingredients: [], 
+          ingredientSources: [] 
         });
       }
     }
@@ -161,7 +165,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
         <div>
           <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Buy Strategy</h3>
           <div className="tabs-container" style={{ borderBottom: 'none', marginBottom: 0 }}>
-            <button className={`tab ${buyStrategy === 'insta' ? 'active' : ''}`} onClick={() => setBuyStrategy('insta')}>Instabuy</button>
+            <button className={`tab ${buyStrategy === 'insta' ? 'active' : ''}`} onClick={() => setBuyStrategy('insta')}>Insta-Buy</button>
             <button className={`tab ${buyStrategy === 'order' ? 'active' : ''}`} onClick={() => setBuyStrategy('order')}>Buy Order</button>
           </div>
         </div>
@@ -169,8 +173,8 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
         <div>
           <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Sell Strategy</h3>
           <div className="tabs-container" style={{ borderBottom: 'none', marginBottom: 0 }}>
-            <button className={`tab ${sellStrategy === 'insta' ? 'active' : ''}`} onClick={() => setSellStrategy('insta')}>Instasell</button>
-            <button className={`tab ${sellStrategy === 'order' ? 'active' : ''}`} onClick={() => setSellStrategy('order')}>Sell Order</button>
+            <button className={`tab ${sellStrategy === 'insta' ? 'active' : ''}`} onClick={() => setSellStrategy('insta')}>Insta-Sell</button>
+            <button className={`tab ${sellStrategy === 'order' ? 'active' : ''}`} onClick={() => setSellStrategy('order')}>Sell Offer</button>
           </div>
         </div>
       </div>
@@ -182,7 +186,8 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
               <th style={{ width: '60px' }}>Rank</th>
               <th>Shard</th>
               <th style={{ textAlign: 'right' }}>Craft Cost</th>
-              <th style={{ textAlign: 'right' }}>Sell Price</th>
+              <th style={{ textAlign: 'right' }}>Buy Order</th>
+              <th style={{ textAlign: 'right' }}>Sell Offer</th>
               <th style={{ textAlign: 'right' }}>Profit / Unit</th>
               <th style={{ textAlign: 'right' }}>Profit / Hr</th>
               <th style={{ textAlign: 'right' }}>ROI</th>
@@ -195,12 +200,17 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                 <td><span className="rank-badge">{idx + 1}</span></td>
                 <td>
                   <div className="product-name">
-                    <ItemIcon productId={flip.targetId} isShard={true} className="product-icon" />
+                    <ItemIcon productId={flip.targetId} className="product-icon" />
                     <span style={{ fontWeight: 600 }}>{flip.name}</span>
                   </div>
                 </td>
                 <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatCompact(flip.craftCost)}</td>
-                <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{formatCompact(flip.sellPrice)}</td>
+                <td style={{ textAlign: 'right', fontFamily: 'monospace', color: sellStrategy === 'insta' ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
+                  {formatCompact(flip.buyOrderPrice)}
+                </td>
+                <td style={{ textAlign: 'right', fontFamily: 'monospace', color: sellStrategy === 'order' ? 'var(--accent-color)' : 'var(--text-secondary)' }}>
+                  {formatCompact(flip.sellOfferPrice)}
+                </td>
                 <td style={{ textAlign: 'right', fontWeight: 700, color: '#3fb950', fontFamily: 'monospace' }}>
                   +{formatCompact(flip.profit)}
                 </td>
@@ -245,7 +255,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
               background: 'rgba(255, 255, 255, 0.02)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <ItemIcon productId={selectedFlip.targetId} isShard={true} style={{ width: '40px', height: '40px' }} />
+                <ItemIcon productId={selectedFlip.targetId} style={{ width: '40px', height: '40px' }} />
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{selectedFlip.name}</h2>
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.85rem' }}>
