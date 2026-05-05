@@ -228,7 +228,7 @@ body {
 
 /* Home Page Table */
 .data-table-container {
-  overflow-x: auto;
+  overflow: visible;
   margin-top: 2rem;
 }
 
@@ -246,15 +246,27 @@ body {
   font-size: 0.8rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  border-bottom: 1px solid var(--border-color);
+  border-bottom: 2px solid var(--border-color);
   cursor: pointer;
   user-select: none;
   position: sticky;
-  top: 64px; /* Matches navbar height */
-  background-color: rgba(13, 17, 23, 0.9); /* Higher opacity for sticky */
+  top: 64px; /* Matches navbar height exactly */
+  background-color: var(--card-bg); 
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
-  z-index: 50; /* Higher than table body, lower than navbar */
+  z-index: 50; 
+  transition: background-color 0.2s;
+}
+
+.data-table th:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: var(--accent-glow);
+  opacity: 0.3;
 }
 
 
@@ -915,9 +927,6 @@ html {
   margin: 0 auto;
 }
 
-.data-table th {
-  top: 80px; /* Align with navbar height + buffer */
-}
 
 /* Fusion Tree Styles */
 .fusion-tree-node {
