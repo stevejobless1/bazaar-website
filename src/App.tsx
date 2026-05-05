@@ -416,7 +416,8 @@ function App() {
   }, [isAuthed]);
 
   const handleLogin = (password: string) => {
-    if (password === 'fusion' || password === 'fusion-2024') {
+    const validPassword = import.meta.env.VITE_DASHBOARD_PASSWORD || 'fusion';
+    if (password === validPassword || password === 'fusion-2024') {
       localStorage.setItem('bt_auth', 'true');
       setIsAuthed(true);
       setLoginError(undefined);
