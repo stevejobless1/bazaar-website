@@ -197,8 +197,9 @@ const Predictions: React.FC = () => {
                 <ol style={{ paddingLeft: '1.25rem', marginBottom: 0 }}>
                   <li style={{ marginBottom: '0.5rem' }}>Download the <b>Local ML Client</b> zip and extract it.</li>
                   <li style={{ marginBottom: '0.5rem' }}>Run <code>pip install -r requirements.txt</code> to install dependencies (LightGBM, Pandas, etc.).</li>
-                  <li style={{ marginBottom: '0.5rem' }}>Execute <code>python predict_client.py</code>. It will fetch historical data from this server, train models locally, and upload predictions back.</li>
-                  <li>Predictions will automatically appear on this dashboard in real-time.</li>
+                  <li style={{ marginBottom: '0.5rem' }}>Run <code>python train_initial.py</code> to train models on <b>all bazaar items</b>. This fetches live data and builds prediction models locally.</li>
+                  <li style={{ marginBottom: '0.5rem' }}>Run <code>python predict_client.py</code> to start predicting and uploading results to this dashboard.</li>
+                  <li>Predictions will automatically appear on this page in real-time.</li>
                 </ol>
               </div>
             </div>
