@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Info } from 'lucide-react';
 import { ProductState, FusionData, LiveOrderBook } from './types';
-import { fetchFusions, fetchLiveOrders, fetchLiveOrdersBulk } from './api';
+import { fetchFusions, fetchLiveOrdersBulk } from './api';
 import ItemIcon from './ItemIcon';
 import FusionTree from './FusionTree';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 
 const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
@@ -338,24 +338,6 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
     }
   };
 
-  useEffect(() => {
-    if (showMaxFusions && flipResults.length > 0) {
-      calculateAllMaxFusions(flipResults);
-    }
-  }, [showMaxFusions, flipResults]);
-
-  useEffect(() => {
-    fetchFusions()
-      .then((data) => {
-        setFusionData(data);
-        setFusionsLoading(false);
-      })
-      .catch((err) => {
-        console.error('Failed to load fusions data', err);
-        setFusionsLoading(false);
-      });
-  }, []);
-
   const { flipResults, effectivePrices } = useMemo(() => {
     if (products.length === 0 || !fusionData) 
       return { flipResults: [], effectivePrices: new Map() };
@@ -378,25 +360,23 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
       const profit = sellPrice - craftCost;
       const margin = (profit / sellPrice) * 100;
       const salesPerHour = targetProd.buyMovingWeek / 168;
-      const maxProfitHr = profit * salesPerHour;
+      const maxProfitHr = profit * Math.min(salesPerHour, 1000);
 
-      if (profit > 100) {
-        results.push({
-          targetId,
-          name: targetShard.name,
-          craftCost,
-          sellPrice, // The strategy-based price
-          buyOrderPrice: targetProd.sellPrice,
-          sellOfferPrice: targetProd.buyPrice,
-          profit,
-          margin,
-          salesPerHour,
-          maxProfitHr,
-          ingredients: [], 
-          ingredientSources: [],
-          bazaarId: targetShard.internal_id
-        });
-      }
+      results.push({
+        targetId,
+        name: targetShard.name,
+        craftCost,
+        sellPrice,
+        buyOrderPrice: targetProd.sellPrice,
+        sellOfferPrice: targetProd.buyPrice,
+        profit,
+        margin,
+        salesPerHour,
+        maxProfitHr,
+        ingredients: [], 
+        ingredientSources: [],
+        bazaarId: targetShard.internal_id
+      });
     }
 
     return { 
@@ -404,6 +384,24 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
       effectivePrices: prices
     };
   }, [products, fusionData, buyStrategy, sellStrategy]);
+
+  useEffect(() => {
+    if (showMaxFusions && flipResults.length > 0) {
+      calculateAllMaxFusions(flipResults);
+    }
+  }, [showMaxFusions, flipResults]);
+
+  useEffect(() => {
+    fetchFusions()
+      .then((data) => {
+        setFusionData(data);
+        setFusionsLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load fusions data', err);
+        setFusionsLoading(false);
+      });
+  }, []);
 
   if (loading || fusionsLoading) return <div className="loader-container"><div className="loader"></div></div>;
   if (error) return <div className="error-message">{error}</div>;
