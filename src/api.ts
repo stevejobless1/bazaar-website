@@ -62,6 +62,13 @@ export const fetchFusions = async (): Promise<any> => {
   return json || { recipes: {}, shards: {} };
 };
 
+export const fetchLiveOrdersBulk = async (productIds: string[]): Promise<any> => {
+  if (productIds.length === 0) return { data: {} };
+  const res = await fetch(`${API_BASE}/bazaar/orders/bulk?ids=${productIds.join(',')}`);
+  if (!res.ok) throw new Error('Failed to fetch bulk live orders');
+  return await res.json();
+};
+
 export const fetchLiveOrders = async (productId: string): Promise<any> => {
   const res = await fetch(`${API_BASE}/bazaar/orders/${productId}`);
   if (!res.ok) throw new Error('Failed to fetch live orders');

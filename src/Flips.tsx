@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { TrendingUp, Info } from 'lucide-react';
 import { ProductState, FusionData, LiveOrderBook } from './types';
-import { fetchFusions, fetchLiveOrders } from './api';
+import { fetchFusions, fetchLiveOrders, fetchLiveOrdersBulk } from './api';
 import ItemIcon from './ItemIcon';
 import FusionTree from './FusionTree';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 
 const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 0 });
 
@@ -28,6 +29,7 @@ interface DetailedFlip {
   maxProfitHr: number;
   ingredients: string[];
   ingredientSources: ('bazaar' | 'craft')[];
+  bazaarId: string;
 }
 
 const calculatePrices = (fusionData: FusionData, productMap: Map<string, ProductState>, buyStrategy: Strategy) => {
@@ -40,6 +42,7 @@ const calculatePrices = (fusionData: FusionData, productMap: Map<string, Product
     const prod = productMap.get(shard.internal_id);
     if (prod) {
       const price = buyStrategy === 'insta' ? prod.buyPrice : prod.sellPrice;
+      // CRITICAL: If price is 0, it means no orders. Treat as Infinity to prevent 0-cost flips.
       if (price > 0) {
         prices.set(shardId, { price, source: 'bazaar' });
       } else {
@@ -66,7 +69,7 @@ const calculatePrices = (fusionData: FusionData, productMap: Map<string, Product
               validRecipe = false;
               break;
             }
-            craftCost += ingData.price * ingShard.fuse_amount;
+            craftCost += ingData.price * (ingShard.fuse_amount || 1);
           }
 
           if (validRecipe) {
@@ -92,6 +95,9 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   const [sellStrategy, setSellStrategy] = useState<Strategy>('order');
   const [selectedFlip, setSelectedFlip] = useState<DetailedFlip | null>(null);
   const [maxFusionsInfo, setMaxFusionsInfo] = useState<{maxFusions: number, loading: boolean, error?: string} | null>(null);
+  const [showMaxFusions, setShowMaxFusions] = useState(false);
+  const [bulkMaxFusions, setBulkMaxFusions] = useState<Record<string, number>>({});
+  const [bulkLoading, setBulkLoading] = useState(false);
 
   useEffect(() => {
     setMaxFusionsInfo(null);
@@ -118,7 +124,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                 for (const ingId of recipe) {
                   const ingShard = fusionData!.shards[ingId];
                   const ingPrice = effectivePrices.get(ingId)?.price || 0;
-                  cost += ingPrice * (ingShard?.fuse_amount || 0);
+                  cost += ingPrice * (ingShard?.fuse_amount || 1);
                 }
                 if (Math.abs(cost / q - priceData.price) < 0.1) {
                   bestRecipe = recipe;
@@ -143,18 +149,26 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
       };
 
       const baseIngredients = getBaseIngredients(flip.targetId, 1);
-      const orderBooks = new Map<string, LiveOrderBook>();
-      const itemsToFetch = Array.from(new Set([...Array.from(baseIngredients.keys()), flip.targetId]));
+      const internalIdMap = new Map<string, string>();
+      baseIngredients.forEach((_, id) => {
+        internalIdMap.set(id, fusionData!.shards[id].internal_id);
+      });
+      const targetInternalId = fusionData!.shards[flip.targetId].internal_id;
+
+      const itemsToFetchInternal = Array.from(new Set([...Array.from(internalIdMap.values()), targetInternalId]));
+      const bulkRes = await fetchLiveOrdersBulk(itemsToFetchInternal);
+      const liveData = bulkRes.data || {};
       
-      await Promise.all(itemsToFetch.map(async (shardId) => {
-        const internalId = fusionData!.shards[shardId].internal_id;
-        const res = await fetchLiveOrders(internalId);
-        orderBooks.set(shardId, res);
-      }));
+      const orderBooks = new Map<string, LiveOrderBook>();
+      baseIngredients.forEach((_, id) => {
+        orderBooks.set(id, liveData[fusionData!.shards[id].internal_id]);
+      });
+      orderBooks.set(flip.targetId, liveData[targetInternalId]);
       
       let fusions = 0;
       const books = new Map<string, LiveOrderBook>();
       for (const [k, v] of orderBooks.entries()) {
+        if (!v) continue;
         books.set(k, JSON.parse(JSON.stringify(v)));
       }
       
@@ -162,7 +176,8 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
         let cost = 0;
         let canMake = true;
         for (const [shardId, qtyNeeded] of baseIngredients.entries()) {
-          const book = books.get(shardId)!;
+          const book = books.get(shardId);
+          if (!book) { canMake = false; break; }
           let qtyToBuy = qtyNeeded;
           let ingCost = 0;
           while (qtyToBuy > 0 && book.sell_summary.length > 0) {
@@ -182,7 +197,9 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
         if (!canMake) break;
         
         let revenue = 0;
-        const targetBook = books.get(flip.targetId)!;
+        const targetBook = books.get(flip.targetId);
+        if (!targetBook) break;
+
         if (sellStrategy === 'insta') {
            if (targetBook.buy_summary.length > 0) {
              const highest = targetBook.buy_summary[0];
@@ -201,9 +218,131 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
       }
       setMaxFusionsInfo({ maxFusions: fusions, loading: false });
     } catch (err) {
+      console.error(err);
       setMaxFusionsInfo({ maxFusions: 0, loading: false, error: 'Failed' });
     }
   };
+
+  const calculateAllMaxFusions = async (results: DetailedFlip[]) => {
+    if (results.length === 0) return;
+    setBulkLoading(true);
+    try {
+      // 1. Map each flip to its base ingredients
+      const flipBaseIngs = results.map(flip => {
+        const counts = new Map<string, number>();
+        const traverse = (currentId: string, currentQty: number) => {
+          const priceData = effectivePrices.get(currentId);
+          if (!priceData) return;
+          if (priceData.source === 'bazaar') {
+            counts.set(currentId, (counts.get(currentId) || 0) + currentQty);
+          } else {
+            const recipes = fusionData!.recipes[currentId];
+            for (const [qtyStr, recipesList] of Object.entries(recipes)) {
+              const q = parseInt(qtyStr);
+              for (const recipe of recipesList as string[][]) {
+                let cost = 0;
+                for (const ingId of recipe) {
+                  const ingShard = fusionData!.shards[ingId];
+                  const ingPrice = effectivePrices.get(ingId)?.price || 0;
+                  cost += ingPrice * (ingShard?.fuse_amount || 1);
+                }
+                if (Math.abs(cost / q - priceData.price) < 0.1) {
+                  for (const ingId of recipe) {
+                    const ingShard = fusionData!.shards[ingId];
+                    traverse(ingId, ((ingShard?.fuse_amount || 1) * currentQty) / q);
+                  }
+                  return;
+                }
+              }
+            }
+          }
+        };
+        traverse(flip.targetId, 1);
+        return { targetId: flip.targetId, baseIngredients: counts };
+      });
+
+      // 2. Fetch all required order books in one go
+      const internalIds = new Set<string>();
+      flipBaseIngs.forEach(f => {
+        internalIds.add(fusionData!.shards[f.targetId].internal_id);
+        f.baseIngredients.forEach((_, id) => {
+          internalIds.add(fusionData!.shards[id].internal_id);
+        });
+      });
+
+      const bulkRes = await fetchLiveOrdersBulk(Array.from(internalIds));
+      const liveData = bulkRes.data || {};
+
+      // 3. Simulate each flip
+      const resultsMap: Record<string, number> = {};
+      
+      for (const flipInfo of flipBaseIngs) {
+        let fusions = 0;
+        // Clone books for this specific simulation
+        const simulationBooks: Record<string, LiveOrderBook> = {};
+        const targetInternalId = fusionData!.shards[flipInfo.targetId].internal_id;
+        simulationBooks[flipInfo.targetId] = JSON.parse(JSON.stringify(liveData[targetInternalId] || { buy_summary: [], sell_summary: [] }));
+        
+        flipInfo.baseIngredients.forEach((_, shardId) => {
+          const intId = fusionData!.shards[shardId].internal_id;
+          simulationBooks[shardId] = JSON.parse(JSON.stringify(liveData[intId] || { buy_summary: [], sell_summary: [] }));
+        });
+
+        const flipMeta = results.find(r => r.targetId === flipInfo.targetId)!;
+
+        while (true) {
+          let cost = 0;
+          let canMake = true;
+          for (const [shardId, qtyNeeded] of flipInfo.baseIngredients.entries()) {
+            const book = simulationBooks[shardId];
+            let qtyToBuy = qtyNeeded;
+            let ingCost = 0;
+            while (qtyToBuy > 0 && book.sell_summary.length > 0) {
+              const cheapest = book.sell_summary[0];
+              const take = Math.min(qtyToBuy, cheapest.amount);
+              ingCost += take * cheapest.pricePerUnit;
+              qtyToBuy -= take;
+              cheapest.amount -= take;
+              if (cheapest.amount === 0) book.sell_summary.shift();
+            }
+            if (qtyToBuy > 0) { canMake = false; break; }
+            cost += ingCost;
+          }
+          if (!canMake) break;
+
+          let revenue = 0;
+          const targetBook = simulationBooks[flipInfo.targetId];
+          if (sellStrategy === 'insta') {
+            if (targetBook.buy_summary.length > 0) {
+              const highest = targetBook.buy_summary[0];
+              revenue = highest.pricePerUnit * 0.9875;
+              highest.amount -= 1;
+              if (highest.amount === 0) targetBook.buy_summary.shift();
+            } else break;
+          } else {
+            if (targetBook.sell_summary.length > 0) revenue = targetBook.sell_summary[0].pricePerUnit * 0.9875;
+            else revenue = flipMeta.sellPrice;
+          }
+
+          if (cost >= revenue) break;
+          fusions++;
+          if (fusions > 10000) break; // Cap bulk simulation for performance
+        }
+        resultsMap[flipInfo.targetId] = fusions;
+      }
+      setBulkMaxFusions(resultsMap);
+    } catch (err) {
+      console.error('Bulk calculation failed', err);
+    } finally {
+      setBulkLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showMaxFusions && flipResults.length > 0) {
+      calculateAllMaxFusions(flipResults);
+    }
+  }, [showMaxFusions, flipResults]);
 
   useEffect(() => {
     fetchFusions()
@@ -254,7 +393,8 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
           salesPerHour,
           maxProfitHr,
           ingredients: [], 
-          ingredientSources: [] 
+          ingredientSources: [],
+          bazaarId: targetShard.internal_id
         });
       }
     }
@@ -294,6 +434,26 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
             <button className={`tab ${sellStrategy === 'order' ? 'active' : ''}`} onClick={() => setSellStrategy('order')}>Sell Offer</button>
           </div>
         </div>
+
+        <div style={{ marginLeft: 'auto' }}>
+           <h3 style={{ marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase', letterSpacing: '1px' }}>Market Depth</h3>
+           <button 
+             className={`btn ${showMaxFusions ? 'btn-primary' : ''}`} 
+             style={{ 
+               padding: '0.5rem 1.25rem', 
+               fontSize: '0.85rem', 
+               display: 'flex', 
+               alignItems: 'center', 
+               gap: '0.5rem',
+               background: showMaxFusions ? '' : 'rgba(255,255,255,0.05)',
+               border: showMaxFusions ? '' : '1px solid rgba(255,255,255,0.1)'
+             }}
+             onClick={() => setShowMaxFusions(!showMaxFusions)}
+           >
+             {bulkLoading ? <RefreshCw size={14} className="animate-spin" /> : <TrendingUp size={14} />}
+             {showMaxFusions ? 'Hide Max Fusions' : 'Analyze Max Fusions'}
+           </button>
+        </div>
       </div>
 
       <div className="glass-panel data-table-container">
@@ -308,6 +468,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
               <th style={{ textAlign: 'right' }}>Profit / Unit</th>
               <th style={{ textAlign: 'right' }}>Profit / Hr</th>
               <th style={{ textAlign: 'right' }}>ROI</th>
+              {showMaxFusions && <th style={{ textAlign: 'right' }}>Max Fusions</th>}
               <th style={{ textAlign: 'center' }}>Action</th>
             </tr>
           </thead>
@@ -317,7 +478,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                 <td><span className="rank-badge">{idx + 1}</span></td>
                 <td>
                   <div className="product-name">
-                    <ItemIcon productId={flip.targetId} className="product-icon" />
+                    <ItemIcon productId={flip.bazaarId} className="product-icon" />
                     <span style={{ fontWeight: 600 }}>{flip.name}</span>
                   </div>
                 </td>
@@ -342,6 +503,17 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                     {flip.margin.toFixed(1)}%
                   </span>
                 </td>
+                {showMaxFusions && (
+                  <td style={{ textAlign: 'right', fontFamily: 'monospace' }}>
+                    {bulkLoading ? (
+                      <span className="loader-tiny"></span>
+                    ) : (
+                      <span style={{ color: (bulkMaxFusions[flip.targetId] || 0) > 0 ? '#3fb950' : 'var(--accent-color)' }}>
+                        {bulkMaxFusions[flip.targetId]?.toLocaleString() || 0}
+                      </span>
+                    )}
+                  </td>
+                )}
                 <td style={{ textAlign: 'center' }}>
                   <button className="btn btn-primary" style={{ padding: '0.4rem 1rem', fontSize: '0.8rem' }}>View Path</button>
                 </td>
@@ -372,7 +544,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
               background: 'rgba(255, 255, 255, 0.02)'
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <ItemIcon productId={selectedFlip.targetId} style={{ width: '40px', height: '40px' }} />
+                <ItemIcon productId={selectedFlip.bazaarId} style={{ width: '40px', height: '40px' }} />
                 <div>
                   <h2 style={{ margin: 0, fontSize: '1.5rem' }}>{selectedFlip.name}</h2>
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.85rem' }}>

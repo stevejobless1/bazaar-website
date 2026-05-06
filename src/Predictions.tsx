@@ -175,16 +175,33 @@ const Predictions: React.FC = () => {
             </table>
           </div>
 
-          <div className="glass-panel" style={{ marginTop: '2rem', padding: '1.5rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
-              <Info size={16} />
-              <span style={{ fontWeight: 600, fontSize: '0.9rem', textTransform: 'uppercase' }}>Methodology</span>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginTop: '2rem' }}>
+            <div className="glass-panel" style={{ padding: '1.5rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: 'var(--text-secondary)' }}>
+                <Info size={16} />
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', textTransform: 'uppercase' }}>Methodology</span>
+              </div>
+              <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+                Our models analyze historical price action, trading volumes, and global Skyblock events (Mayors, Festivals) to predict short-term price movements. 
+                The <b>Entry Score</b> represents the probability of a profitable flip (2%+) within the next hour. 
+                Signals with a score above <b>0.75</b> are considered high-confidence opportunities.
+              </p>
             </div>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-              Our models analyze historical price action, trading volumes, and global Skyblock events (Mayors, Festivals) to predict short-term price movements. 
-              The <b>Entry Score</b> represents the probability of a profitable flip (2%+) within the next hour. 
-              Signals with a score above <b>0.75</b> are considered high-confidence opportunities.
-            </p>
+
+            <div className="glass-panel" style={{ padding: '1.5rem', borderLeft: '4px solid var(--accent-color)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', color: 'var(--accent-color)' }}>
+                <Zap size={16} />
+                <span style={{ fontWeight: 600, fontSize: '0.9rem', textTransform: 'uppercase' }}>Local Client Workflow</span>
+              </div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                <ol style={{ paddingLeft: '1.25rem', marginBottom: 0 }}>
+                  <li style={{ marginBottom: '0.5rem' }}>Download the <b>Local ML Client</b> zip and extract it.</li>
+                  <li style={{ marginBottom: '0.5rem' }}>Run <code>pip install -r requirements.txt</code> to install dependencies (LightGBM, Pandas, etc.).</li>
+                  <li style={{ marginBottom: '0.5rem' }}>Execute <code>python predict_client.py</code>. It will fetch historical data from this server, train models locally, and upload predictions back.</li>
+                  <li>Predictions will automatically appear on this dashboard in real-time.</li>
+                </ol>
+              </div>
+            </div>
           </div>
         </>
       )}
