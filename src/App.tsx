@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Search, Activity, TrendingUp, Brain, Radio, LogOut, Leaf } from 'lucide-react';
+import { Search, Activity, TrendingUp, Radio, LogOut, Leaf } from 'lucide-react';
 import { fetchLatest, fetchUnifiedHistory, fetchLiveOrders, fetchMayors, fetchVolumeHistory } from './api';
 import { ProductState, LiveOrderBook, HistoryPoint } from './types';
 import PriceChart from './PriceChart';
 import Flips from './Flips';
 import Status from './Status';
-import Predictions from './Predictions';
 import Login from './Login';
 import Greenhouse from './Greenhouse';
 
@@ -51,13 +50,6 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
         >
           <TrendingUp size={18} />
           Flips
-        </Link>
-        <Link 
-          to="/predictions" 
-          className={`nav-link ${location.pathname === '/predictions' ? 'active' : ''}`}
-        >
-          <Brain size={18} />
-          Predictions
         </Link>
         <Link 
           to="/status" 
@@ -485,7 +477,6 @@ function App() {
         <Routes>
           <Route path="/" element={<Home products={products} loading={loading} error={error} />} />
           <Route path="/flips" element={<Flips products={products} loading={loading} error={error} />} />
-          <Route path="/predictions" element={<Predictions />} />
           <Route path="/status" element={<Status />} />
           <Route path="/greenhouse" element={<Greenhouse />} />
           <Route path="/item/:productId" element={<ProductDetails />} />
