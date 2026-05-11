@@ -17,7 +17,18 @@ const formatTime = (ts: number) => {
   }
 };
 
-const GAP_THRESHOLD_MS = 1 * 60 * 60 * 1000; // 1 hour (was 12h)
+// Dynamic gap threshold: scales with the visible time range so that
+// daily-resolution data renders as continuous lines instead of dots.
+const getGapThreshold = (domainMin: number, domainMax: number): number => {
+  const span = domainMax - domainMin;
+  const ONE_HOUR = 3600000;
+  const ONE_DAY = 86400000;
+  if (span > 60 * ONE_DAY) return 36 * ONE_HOUR;   // >2 months: bridge up to 36h gaps
+  if (span > 14 * ONE_DAY) return 12 * ONE_HOUR;   // >2 weeks: bridge up to 12h gaps
+  if (span > 3 * ONE_DAY)  return 4 * ONE_HOUR;    // >3 days: bridge up to 4h gaps
+  if (span > ONE_DAY)      return 2 * ONE_HOUR;     // >1 day: bridge up to 2h gaps
+  return 5 * 60 * 1000;                             // <1 day: 5 min threshold
+};
 const padding = { top: 40, right: 30, bottom: 60, left: 90 };
 
 interface PriceChartProps {
@@ -153,12 +164,13 @@ export default function PriceChart({ data, mayors = [], volumeData = [] }: Price
 
     // Split into segments
     const segments: HistoryPoint[][] = [];
+    const gapThreshold = getGapThreshold(domainMin, domainMax);
     if (visiblePoints.length > 0) {
       let currentSegment: HistoryPoint[] = [visiblePoints[0]];
       for (let i = 1; i < visiblePoints.length; i++) {
         const prev = visiblePoints[i - 1];
         const curr = visiblePoints[i];
-        if (curr.timestamp - prev.timestamp > GAP_THRESHOLD_MS) {
+        if (curr.timestamp - prev.timestamp > gapThreshold) {
           segments.push(currentSegment);
           currentSegment = [curr];
         } else {
