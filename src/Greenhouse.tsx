@@ -84,8 +84,8 @@ export default function Greenhouse() {
     <div style={{ display: "flex", gap: "2rem" }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
         <header>
-          <h1 className="text-gradient" style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>Sky Mutations</h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Automated Greenhouse Layout Planner</p>
+          <h1 style={{ fontSize: '2.2rem', marginBottom: '0.5rem', color: 'var(--accent-color)' }}>Greenhouse Layout Planner</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Automated algorithmic generation of optimal crop layouts.</p>
         </header>
         
         <GridManager 

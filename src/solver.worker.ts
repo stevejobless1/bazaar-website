@@ -26,6 +26,31 @@ const getNeighbors = (grid: any, x: number, y: number) => {
   return neighbors;
 };
 
+// Check if placing an ingredient at (ix, iy) will break any existing targets
+const safeToPlaceIngredient = (grid: any, ix: number, iy: number, ingredientName: string, targetReqs: any) => {
+  const targetNeighbors = getNeighbors(grid, ix, iy).filter(n => n.cell.type === 'target');
+  
+  for (const tn of targetNeighbors) {
+    // This target needs 'targetReqs'
+    const currentReqAmount = targetReqs[ingredientName] || 0;
+    
+    // Count how many of this ingredient it currently has
+    const tNeighbors = getNeighbors(grid, tn.x, tn.y);
+    let count = 0;
+    for (const cn of tNeighbors) {
+      if ((cn.cell.type === 'ingredient' || cn.cell.type === 'target') && cn.cell.name === ingredientName) {
+        count++;
+      }
+    }
+    
+    // If adding one more exceeds the requirement, we cannot place it here
+    if (count + 1 > currentReqAmount) {
+      return false;
+    }
+  }
+  return true;
+};
+
 const solveIteration = (initialGrid: any, targetName: string, targetReqs: any) => {
   // Deep copy grid
   const grid = initialGrid.map((row: any) => row.map((cell: any) => ({ ...cell })));
@@ -64,7 +89,7 @@ const solveIteration = (initialGrid: any, targetName: string, targetReqs: any) =
       }
     }
 
-    // Check if any requirement is exceeded
+    // Check if any requirement is exceeded for the NEW target
     const missing: Record<string, number> = {};
     let totalMissing = 0;
     
@@ -81,52 +106,67 @@ const solveIteration = (initialGrid: any, targetName: string, targetReqs: any) =
       }
     }
 
-    // Also need to check if existing crops that are NOT in requirements exist?
-    // In Skyblock, usually having extra crops that aren't the required ones is fine, 
-    // EXCEPT if the requirement explicitly says "0 adjacent crops" which we map to empty reqs.
-    // If targetReqs is empty, it means 0 adjacent crops.
+    // If 0 adjacencies required
     if (Object.keys(targetReqs).length === 0) {
-      // Must have exactly 0 adjacent crops
       const hasCrops = neighbors.some(n => n.cell.type === 'ingredient' || n.cell.type === 'target');
       if (hasCrops) canPlace = false;
     } else {
-      // If it requires specific crops, can it have others? Usually yes, but the strict solver 
-      // sometimes assumes only those. We will allow other crops, but ensure we don't violate others.
+      // Must not have ANY crops that aren't in targetReqs
+      const hasInvalidExisting = neighbors.some(n => {
+        if (n.cell.type === 'ingredient' || n.cell.type === 'target') {
+          if (!targetReqs[n.cell.name]) return true;
+        }
+        return false;
+      });
+      if (hasInvalidExisting) canPlace = false;
     }
 
     if (!canPlace || totalMissing > emptyNeighbors.length) {
-      continue; // Cannot place target here
+      continue; 
+    }
+
+    // Now we need to find empty neighbors that are SAFE to place ingredients in
+    // For each missing ingredient, we need to find a safe empty neighbor
+    let safePlacementFound = true;
+    const placements = []; // {x, y, name}
+    
+    // Copy empty neighbors so we can try to allocate them
+    let availableNeighbors = [...emptyNeighbors];
+    shuffle(availableNeighbors);
+
+    for (const [reqCrop, count] of Object.entries(missing)) {
+      for (let i = 0; i < (count as number); i++) {
+        let placed = false;
+        for (let j = 0; j < availableNeighbors.length; j++) {
+          const n = availableNeighbors[j];
+          if (safeToPlaceIngredient(grid, n.x, n.y, reqCrop, targetReqs)) {
+            // Temporarily place it to check subsequent ingredients
+            grid[n.y][n.x] = { type: 'ingredient', name: reqCrop };
+            placements.push({ x: n.x, y: n.y, name: reqCrop });
+            availableNeighbors.splice(j, 1);
+            placed = true;
+            break;
+          }
+        }
+        if (!placed) {
+          safePlacementFound = false;
+          break;
+        }
+      }
+      if (!safePlacementFound) break;
+    }
+
+    if (!safePlacementFound) {
+      // Rollback temporary placements
+      for (const p of placements) {
+        grid[p.y][p.x] = { type: 'empty', name: null };
+      }
+      continue; // Skip this target
     }
 
     // Valid to place!
     grid[y][x] = { type: 'target', name: targetName };
     targetCount++;
-
-    // Assign missing ingredients randomly to empty neighbors
-    shuffle(emptyNeighbors);
-    
-    for (const [reqCrop, count] of Object.entries(missing)) {
-      for (let i = 0; i < (count as number); i++) {
-        const n = emptyNeighbors.pop();
-        if (n) { grid[n.y][n.x] = { type: 'ingredient', name: reqCrop }; }
-      }
-    }
-
-    // To prevent future placements from adding crops that would violate THIS target's exact counts,
-    // we should ideally lock the remaining empty neighbors from becoming any of the `targetReqs`.
-    // For simplicity and speed in this randomized greedy approach, we lock them completely.
-    for (const n of emptyNeighbors) {
-      grid[n.y][n.x] = { type: 'locked' };
-    }
-  }
-
-  // Cleanup 'locked' cells back to 'empty' for visualization
-  for (let y = 0; y < 10; y++) {
-    for (let x = 0; x < 10; x++) {
-      if (grid[y][x].type === 'locked') {
-        grid[y][x] = { type: 'empty', name: null };
-      }
-    }
   }
 
   return { grid, targetCount };
@@ -138,7 +178,8 @@ self.onmessage = (e) => {
   if (type === 'START_SOLVE') {
     const { grid, requests } = payload;
     
-    // We only handle the first target request for now as the "primary" to maximize
+    if (!requests || requests.length === 0) return;
+    
     const primaryRequest = requests[0];
     const targetName = primaryRequest.name;
     const rules = (solverRules as any)[targetName];
@@ -148,12 +189,13 @@ self.onmessage = (e) => {
       return;
     }
 
-    const targetReqs = rules.reqs;
+    const targetReqs = rules.reqs || {};
     
     let bestGrid = grid;
     let maxScore = -1;
 
-    const iterations = 5000;
+    // Run 15000 iterations. The fast greedy search is very quick.
+    const iterations = 15000;
     
     for (let i = 0; i < iterations; i++) {
       const result = solveIteration(grid, targetName, targetReqs);

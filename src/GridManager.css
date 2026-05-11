@@ -56,11 +56,7 @@
   color: var(--danger);
 }
 
-.grid-cell.blocked::after {
-  content: '✕';
-  font-size: 1.2rem;
-  opacity: 0.5;
-}
+
 
 .grid-cell.target {
   background-color: rgba(41, 171, 224, 0.2);

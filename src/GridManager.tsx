@@ -1,5 +1,40 @@
 
+import ItemIcon from './ItemIcon';
 import './GridManager.css';
+
+const cropToId: Record<string, string> = {
+  "Nether Wart": "ENCHANTED_NETHER_STALK",
+  "Fire": "FLINT_AND_STEEL",
+  "Water": "WATER_BUCKET",
+  "Wheat": "WHEAT",
+  "Carrot": "CARROT_ITEM",
+  "Potato": "POTATO_ITEM",
+  "Sugar Cane": "SUGAR_CANE",
+  "Cactus": "CACTUS",
+  "Pumpkin": "PUMPKIN",
+  "Melon": "MELON",
+  "Cocoa Beans": "INK_SACK:3",
+  "Brown Mushroom": "BROWN_MUSHROOM",
+  "Red Mushroom": "RED_MUSHROOM",
+  "Dead Plant": "DEAD_BUSH",
+  "Sunflower": "DOUBLE_PLANT",
+  "Wild Rose": "RED_ROSE",
+  "Soul Sand": "SOUL_SAND",
+  "Fermento": "FERMENTO",
+  "Ashwreath": "WEEPING_VINES", // Fallbacks for rift
+  "Choconut": "COCOA_BEANS",
+  "Dustgrain": "WHEAT_SEEDS",
+  "Gloomgourd": "PUMPKIN",
+  "Lonelily": "LILY_PAD",
+  "Scourroot": "POTATO_ITEM",
+  "Shadevine": "VINE",
+  "Veilshroom": "BROWN_MUSHROOM",
+  "Witherbloom": "WITHER_ROSE"
+};
+
+const getProductId = (name: string) => {
+  return cropToId[name] || name.toUpperCase().replace(/\s+/g, '_');
+};
 
 export default function GridManager({ grid, onCellClick }: any) {
   return (
@@ -27,7 +62,8 @@ export default function GridManager({ grid, onCellClick }: any) {
                   onClick={() => onCellClick(x, y)}
                   title={cell.name || (cell.type === 'blocked' ? 'Blocked' : 'Empty')}
                 >
-                  {cell.name && <span style={{fontSize: '0.65rem', textAlign: 'center', opacity: 0.8}}>{cell.name.substring(0,3)}</span>}
+                  {cell.type === 'blocked' && <ItemIcon productId="BARRIER" />}
+                  {cell.name && <ItemIcon productId={getProductId(cell.name)} title={cell.name} style={{ width: '24px', height: '24px', filter: cell.type === 'ingredient' ? 'grayscale(0.3)' : 'none' }} />}
                 </div>
               );
             })
