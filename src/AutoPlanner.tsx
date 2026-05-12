@@ -1,8 +1,18 @@
 import { useState } from 'react';
 import './AutoPlanner.css';
 import solverRules from './solver_rules.json';
+import { GreenhouseRequest } from './types';
 
-export default function AutoPlanner({ requests, setRequests, onGenerate, isSolving, blockMode, setBlockMode }: any) {
+interface AutoPlannerProps {
+  requests: GreenhouseRequest[];
+  setRequests: (requests: GreenhouseRequest[]) => void;
+  onGenerate: () => void;
+  isSolving: boolean;
+  blockMode: boolean;
+  setBlockMode: (blockMode: boolean) => void;
+}
+
+export default function AutoPlanner({ requests, setRequests, onGenerate, isSolving, blockMode, setBlockMode }: AutoPlannerProps) {
   const [selectedCrop, setSelectedCrop] = useState('');
   const [maxMode, setMaxMode] = useState(false);
   
@@ -13,7 +23,7 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
     if (!selectedCrop) return;
     
     // Check if already requested
-    if (requests.some((r: any) => r.name === selectedCrop)) return;
+    if (requests.some((r: GreenhouseRequest) => r.name === selectedCrop)) return;
 
     setRequests([...requests, { 
       name: selectedCrop, 
@@ -25,7 +35,7 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
   };
 
   const removeRequest = (name: string) => {
-    setRequests(requests.filter((r: any) => r.name !== name));
+    setRequests(requests.filter((r: GreenhouseRequest) => r.name !== name));
   };
 
   return (
@@ -83,7 +93,7 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
             </p>
           ) : (
             <div className="requests-list">
-              {requests.map((r: any) => (
+              {requests.map((r: GreenhouseRequest) => (
                 <div key={r.name} className="request-item">
                   <div className="request-info">
                     <span className="request-name">{r.name}</span>

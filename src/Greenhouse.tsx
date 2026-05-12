@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
 import GridManager from './GridManager';
 import AutoPlanner from './AutoPlanner';
+import { Grid, GreenhouseRequest, GridCell } from './types';
 
 const GRID_SIZE = 10;
 
 // Create an initial empty grid
-const createEmptyGrid = () => {
-  const grid = [];
+const createEmptyGrid = (): Grid => {
+  const grid: Grid = [];
   for (let y = 0; y < GRID_SIZE; y++) {
-    const row = [];
+    const row: GridCell[] = [];
     for (let x = 0; x < GRID_SIZE; x++) {
       row.push({ type: 'empty', name: null });
     }
@@ -18,8 +19,8 @@ const createEmptyGrid = () => {
 };
 
 export default function Greenhouse() {
-  const [grid, setGrid] = useState(createEmptyGrid());
-  const [requests, setRequests] = useState([]);
+  const [grid, setGrid] = useState<Grid>(createEmptyGrid());
+  const [requests, setRequests] = useState<GreenhouseRequest[]>([]);
   const [blockMode, setBlockMode] = useState(false);
   const [isSolving, setIsSolving] = useState(false);
   
@@ -65,7 +66,7 @@ export default function Greenhouse() {
     setIsSolving(true);
     
     // Clear out everything except blocks before solving
-    const initialGrid = grid.map(row => 
+    const initialGrid: Grid = grid.map(row =>
       row.map(cell => cell.type === 'blocked' ? cell : { type: 'empty', name: null })
     );
     setGrid(initialGrid);
