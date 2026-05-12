@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
-import { Search, Activity, TrendingUp, Radio, LogOut, Leaf } from 'lucide-react';
+import { Search, Activity, TrendingUp, Radio, LogOut, Leaf, Calendar } from 'lucide-react';
 import { fetchLatest, fetchUnifiedHistory, fetchLiveOrders, fetchMayors, fetchVolumeHistory } from './api';
 import { ProductState, LiveOrderBook, HistoryPoint } from './types';
 import PriceChart from './PriceChart';
@@ -8,6 +8,7 @@ import Flips from './Flips';
 import Status from './Status';
 import Login from './Login';
 import Greenhouse from './Greenhouse';
+import Jacobs from './Jacobs';
 
 import ItemIcon from './ItemIcon';
 
@@ -116,6 +117,13 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
         >
           <Leaf size={18} />
           Greenhouse
+        </Link>
+        <Link 
+          to="/jacobs" 
+          className={`nav-link ${location.pathname === '/jacobs' ? 'active' : ''}`}
+        >
+          <Calendar size={18} />
+          Contests
         </Link>
       </div>
       
@@ -561,6 +569,7 @@ function App() {
           <Route path="/flips" element={<Flips products={products} loading={loading} error={error} />} />
           <Route path="/status" element={<Status />} />
           <Route path="/greenhouse" element={<Greenhouse />} />
+          <Route path="/jacobs" element={<Jacobs />} />
           <Route path="/item/:productId" element={<ProductDetails />} />
         </Routes>
       </div>
