@@ -106,49 +106,11 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   const calculateMaxFusions = async (flip: DetailedFlip) => {
     setMaxFusionsInfo({ maxFusions: 0, loading: true });
     try {
-      const getBaseIngredients = (targetId: string, qty: number): Map<string, number> => {
-        const counts = new Map<string, number>();
-        const traverse = (currentId: string, currentQty: number) => {
-          const priceData = effectivePrices.get(currentId);
-          if (!priceData) return;
-          if (priceData.source === 'bazaar') {
-            counts.set(currentId, (counts.get(currentId) || 0) + currentQty);
-          } else {
-            const recipes = fusionData!.recipes[currentId];
-            let bestRecipe: string[] | null = null;
-            let outputQty = 1;
-            for (const [qtyStr, recipesList] of Object.entries(recipes)) {
-              const q = parseInt(qtyStr);
-              for (const recipe of recipesList as string[][]) {
-                let cost = 0;
-                for (const ingId of recipe) {
-                  const ingShard = fusionData!.shards[ingId];
-                  const ingPrice = effectivePrices.get(ingId)?.price || 0;
-                  cost += ingPrice * (ingShard?.fuse_amount || 1);
-                }
-                if (Math.abs(cost / q - priceData.price) < 0.1) {
-                  bestRecipe = recipe;
-                  outputQty = q;
-                  break;
-                }
-              }
-              if (bestRecipe) break;
-            }
-            if (bestRecipe) {
-              for (const ingId of bestRecipe) {
-                const ingShard = fusionData!.shards[ingId];
-                const neededForOne = ingShard?.fuse_amount || 1;
-                const totalNeeded = (neededForOne * currentQty) / outputQty;
-                traverse(ingId, totalNeeded);
-              }
-            }
-          }
-        };
-        traverse(targetId, qty);
-        return counts;
-      };
-
-      const baseIngredients = getBaseIngredients(flip.targetId, 1);
+      const baseIngredientsForOne = getBaseIngredientsForOne(flip.targetId);
+      const baseIngredients = new Map<string, number>();
+      for (const [id, qty] of baseIngredientsForOne.entries()) {
+        baseIngredients.set(id, qty * 1); // multiply by qty if we were asking for more than 1
+      }
       const internalIdMap = new Map<string, string>();
       baseIngredients.forEach((_, id) => {
         internalIdMap.set(id, fusionData!.shards[id].internal_id);
@@ -227,37 +189,13 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
     if (results.length === 0) return;
     setBulkLoading(true);
     try {
-      // 1. Map each flip to its base ingredients
+      // 1. Map each flip to its base ingredients using memoized cache
       const flipBaseIngs = results.map(flip => {
+        const baseIngredientsForOne = getBaseIngredientsForOne(flip.targetId);
         const counts = new Map<string, number>();
-        const traverse = (currentId: string, currentQty: number) => {
-          const priceData = effectivePrices.get(currentId);
-          if (!priceData) return;
-          if (priceData.source === 'bazaar') {
-            counts.set(currentId, (counts.get(currentId) || 0) + currentQty);
-          } else {
-            const recipes = fusionData!.recipes[currentId];
-            for (const [qtyStr, recipesList] of Object.entries(recipes)) {
-              const q = parseInt(qtyStr);
-              for (const recipe of recipesList as string[][]) {
-                let cost = 0;
-                for (const ingId of recipe) {
-                  const ingShard = fusionData!.shards[ingId];
-                  const ingPrice = effectivePrices.get(ingId)?.price || 0;
-                  cost += ingPrice * (ingShard?.fuse_amount || 1);
-                }
-                if (Math.abs(cost / q - priceData.price) < 0.1) {
-                  for (const ingId of recipe) {
-                    const ingShard = fusionData!.shards[ingId];
-                    traverse(ingId, ((ingShard?.fuse_amount || 1) * currentQty) / q);
-                  }
-                  return;
-                }
-              }
-            }
-          }
-        };
-        traverse(flip.targetId, 1);
+        for (const [id, qty] of baseIngredientsForOne.entries()) {
+          counts.set(id, qty * 1);
+        }
         return { targetId: flip.targetId, baseIngredients: counts };
       });
 
@@ -384,6 +322,71 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
       effectivePrices: prices
     };
   }, [products, fusionData, buyStrategy, sellStrategy]);
+
+  // Memoized base ingredient calculator to prevent redundant tree traversals
+  const getBaseIngredientsForOne = useMemo(() => {
+    if (!fusionData || effectivePrices.size === 0) return () => new Map<string, number>();
+
+    const cache = new Map<string, Map<string, number>>();
+
+    const getFor = (targetId: string): Map<string, number> => {
+      if (cache.has(targetId)) {
+        return cache.get(targetId)!;
+      }
+
+      const counts = new Map<string, number>();
+      const priceData = effectivePrices.get(targetId);
+
+      if (!priceData) {
+        cache.set(targetId, counts);
+        return counts;
+      }
+
+      if (priceData.source === 'bazaar') {
+        counts.set(targetId, 1);
+      } else {
+        const recipes = fusionData.recipes[targetId];
+        let bestRecipe: string[] | null = null;
+        let outputQty = 1;
+
+        if (recipes) {
+          for (const [qtyStr, recipesList] of Object.entries(recipes)) {
+            const q = parseInt(qtyStr);
+            for (const recipe of recipesList as string[][]) {
+              let cost = 0;
+              for (const ingId of recipe) {
+                const ingShard = fusionData.shards[ingId];
+                const ingPrice = effectivePrices.get(ingId)?.price || 0;
+                cost += ingPrice * (ingShard?.fuse_amount || 1);
+              }
+              if (Math.abs(cost / q - priceData.price) < 0.1) {
+                bestRecipe = recipe;
+                outputQty = q;
+                break;
+              }
+            }
+            if (bestRecipe) break;
+          }
+        }
+
+        if (bestRecipe) {
+          for (const ingId of bestRecipe) {
+            const ingShard = fusionData.shards[ingId];
+            const neededForOne = ingShard?.fuse_amount || 1;
+            const ingBaseCounts = getFor(ingId);
+            for (const [baseId, baseQty] of ingBaseCounts.entries()) {
+              counts.set(baseId, (counts.get(baseId) || 0) + (baseQty * neededForOne) / outputQty);
+            }
+          }
+        }
+      }
+
+      cache.set(targetId, counts);
+      return counts;
+    };
+
+    return getFor;
+  }, [fusionData, effectivePrices]);
 
   useEffect(() => {
     if (showMaxFusions && flipResults.length > 0) {

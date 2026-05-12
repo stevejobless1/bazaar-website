@@ -1,0 +1,3 @@
+## 2024-05-24 - Memoizing recursive React calculations
+**Learning:** In deeply recursive tree traversals (like recipe calculations) that run on the frontend when analyzing many items (e.g. 50+ flips with identical base components), duplicating the path traversal O(Tree Depth) for every top-level target is a major performance bottleneck, leading to O(N * Tree Depth). Memoizing the required base ingredients for one unit in a local Map scope significantly reduces redundant operations by resolving sub-trees incrementally.
+**Action:** Always look for overlapping subproblems in multi-item recursive analysis components on the frontend and implement `useMemo` backed by Map or Object caching to convert structural duplication into O(1) lookups.
