@@ -106,13 +106,17 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
   const calculateMaxFusions = async (flip: DetailedFlip) => {
     setMaxFusionsInfo({ maxFusions: 0, loading: true });
     try {
+      const memo = new Map<string, Map<string, number>>();
       const getBaseIngredients = (targetId: string, qty: number): Map<string, number> => {
-        const counts = new Map<string, number>();
-        const traverse = (currentId: string, currentQty: number) => {
+        const traverse = (currentId: string): Map<string, number> => {
+          if (memo.has(currentId)) return memo.get(currentId)!;
+
+          const counts = new Map<string, number>();
           const priceData = effectivePrices.get(currentId);
-          if (!priceData) return;
+          if (!priceData) return counts;
+
           if (priceData.source === 'bazaar') {
-            counts.set(currentId, (counts.get(currentId) || 0) + currentQty);
+            counts.set(currentId, 1);
           } else {
             const recipes = fusionData!.recipes[currentId];
             let bestRecipe: string[] | null = null;
@@ -138,14 +142,24 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
               for (const ingId of bestRecipe) {
                 const ingShard = fusionData!.shards[ingId];
                 const neededForOne = ingShard?.fuse_amount || 1;
-                const totalNeeded = (neededForOne * currentQty) / outputQty;
-                traverse(ingId, totalNeeded);
+                const ingredients = traverse(ingId);
+                for (const [id, amount] of ingredients.entries()) {
+                  const totalNeeded = (amount * neededForOne) / outputQty;
+                  counts.set(id, (counts.get(id) || 0) + totalNeeded);
+                }
               }
             }
           }
+          memo.set(currentId, counts);
+          return counts;
         };
-        traverse(targetId, qty);
-        return counts;
+
+        const baseMap = traverse(targetId);
+        const finalCounts = new Map<string, number>();
+        for (const [id, amount] of baseMap.entries()) {
+          finalCounts.set(id, amount * qty);
+        }
+        return finalCounts;
       };
 
       const baseIngredients = getBaseIngredients(flip.targetId, 1);
@@ -227,38 +241,50 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
     if (results.length === 0) return;
     setBulkLoading(true);
     try {
-      // 1. Map each flip to its base ingredients
-      const flipBaseIngs = results.map(flip => {
+      const memo = new Map<string, Map<string, number>>();
+      const getBaseIngredients = (currentId: string): Map<string, number> => {
+        if (memo.has(currentId)) return memo.get(currentId)!;
+
         const counts = new Map<string, number>();
-        const traverse = (currentId: string, currentQty: number) => {
-          const priceData = effectivePrices.get(currentId);
-          if (!priceData) return;
-          if (priceData.source === 'bazaar') {
-            counts.set(currentId, (counts.get(currentId) || 0) + currentQty);
-          } else {
-            const recipes = fusionData!.recipes[currentId];
-            for (const [qtyStr, recipesList] of Object.entries(recipes)) {
-              const q = parseInt(qtyStr);
-              for (const recipe of recipesList as string[][]) {
-                let cost = 0;
+        const priceData = effectivePrices.get(currentId);
+        if (!priceData) return counts;
+
+        if (priceData.source === 'bazaar') {
+          counts.set(currentId, 1);
+        } else {
+          const recipes = fusionData!.recipes[currentId];
+          for (const [qtyStr, recipesList] of Object.entries(recipes)) {
+            const q = parseInt(qtyStr);
+            for (const recipe of recipesList as string[][]) {
+              let cost = 0;
+              for (const ingId of recipe) {
+                const ingShard = fusionData!.shards[ingId];
+                const ingPrice = effectivePrices.get(ingId)?.price || 0;
+                cost += ingPrice * (ingShard?.fuse_amount || 1);
+              }
+              if (Math.abs(cost / q - priceData.price) < 0.1) {
                 for (const ingId of recipe) {
                   const ingShard = fusionData!.shards[ingId];
-                  const ingPrice = effectivePrices.get(ingId)?.price || 0;
-                  cost += ingPrice * (ingShard?.fuse_amount || 1);
-                }
-                if (Math.abs(cost / q - priceData.price) < 0.1) {
-                  for (const ingId of recipe) {
-                    const ingShard = fusionData!.shards[ingId];
-                    traverse(ingId, ((ingShard?.fuse_amount || 1) * currentQty) / q);
+                  const neededForOne = ingShard?.fuse_amount || 1;
+                  const ingredients = getBaseIngredients(ingId);
+                  for (const [id, amount] of ingredients.entries()) {
+                    const totalNeeded = (amount * neededForOne) / q;
+                    counts.set(id, (counts.get(id) || 0) + totalNeeded);
                   }
-                  return;
                 }
+                memo.set(currentId, counts);
+                return counts;
               }
             }
           }
-        };
-        traverse(flip.targetId, 1);
-        return { targetId: flip.targetId, baseIngredients: counts };
+        }
+        memo.set(currentId, counts);
+        return counts;
+      };
+
+      // 1. Map each flip to its base ingredients
+      const flipBaseIngs = results.map(flip => {
+        return { targetId: flip.targetId, baseIngredients: getBaseIngredients(flip.targetId) };
       });
 
       // 2. Fetch all required order books in one go
