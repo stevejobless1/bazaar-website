@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Calendar, Clock, AlertCircle, Timer, ChevronRight } from 'lucide-react';
+import { Calendar, Clock, AlertCircle } from 'lucide-react';
 
 import ItemIcon from './ItemIcon';
 import { fetchJacobs } from './api';
