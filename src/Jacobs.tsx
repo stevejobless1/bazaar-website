@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calendar, Clock, Sprout, AlertCircle } from 'lucide-react';
+import { Calendar, Clock, AlertCircle } from 'lucide-react';
 import ItemIcon from './ItemIcon';
 import './Jacobs.css'; // I will create this file to add some custom aesthetic styles
 
