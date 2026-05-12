@@ -98,3 +98,10 @@ export const fetchVolumeHistory = async (productId: string, start?: number, end?
   }));
 };
 
+export const fetchJacobs = async (): Promise<any[]> => {
+  const res = await fetch(`${API_BASE}/jacobs`);
+  if (!res.ok) throw new Error('Failed to fetch Jacob contests from proxy');
+  return await res.json();
+};
+
+

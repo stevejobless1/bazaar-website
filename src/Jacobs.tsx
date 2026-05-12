@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, AlertCircle } from 'lucide-react';
+
 import ItemIcon from './ItemIcon';
+import { fetchJacobs } from './api';
 import './Jacobs.css'; // I will create this file to add some custom aesthetic styles
 
 interface JacobsContest {
@@ -36,10 +38,8 @@ const Jacobs: React.FC = () => {
     
     const fetchContests = async () => {
       try {
-        // We do not set loading to true here to avoid UI flicker on background refresh
-        const res = await fetch('https://jacobs.strassburger.dev/api/jacobcontests');
-        if (!res.ok) throw new Error('Failed to fetch Jacob contests');
-        const data: JacobsContest[] = await res.json();
+        // We use our internal proxy to bypass CORS
+        const data = await fetchJacobs();
         
         // Filter out past contests based on current time (with some buffer just in case)
         const now = Date.now();
