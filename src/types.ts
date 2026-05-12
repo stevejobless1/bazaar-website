@@ -72,3 +72,15 @@ export interface LiveOrderBook {
   buy_summary: LiveOrder[];
   sell_summary: LiveOrder[];
 }
+
+export interface GridCell {
+  type: string;
+  name: string | null;
+}
+
+export type Grid = GridCell[][];
+
+export interface GreenhouseRequest {
+  name: string;
+  max: boolean;
+}

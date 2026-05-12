@@ -1,6 +1,7 @@
 
 import ItemIcon from './ItemIcon';
 import './GridManager.css';
+import { Grid, GridCell } from './types';
 
 const cropToId: Record<string, string> = {
   "Nether Wart": "ENCHANTED_NETHER_STALK",
@@ -36,7 +37,12 @@ const getProductId = (name: string) => {
   return cropToId[name] || name.toUpperCase().replace(/\s+/g, '_');
 };
 
-export default function GridManager({ grid, onCellClick }: any) {
+interface GridManagerProps {
+  grid: Grid;
+  onCellClick: (x: number, y: number) => void;
+}
+
+export default function GridManager({ grid, onCellClick }: GridManagerProps) {
   return (
     <div className="grid-manager">
       <div className="grid-header">
@@ -48,8 +54,8 @@ export default function GridManager({ grid, onCellClick }: any) {
       
       <div className="grid-container animate-fade-in">
         <div className="grid">
-          {grid.map((row: any, y: number) => 
-            row.map((cell: any, x: number) => {
+          {grid.map((row: GridCell[], y: number) =>
+            row.map((cell: GridCell, x: number) => {
               let className = "grid-cell";
               if (cell.type === 'blocked') className += " blocked";
               if (cell.type === 'target') className += " target";
