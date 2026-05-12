@@ -89,7 +89,7 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
                     <span className="request-name">{r.name}</span>
                     <span className="request-qty">{r.max ? 'MAX Quantity' : '1 Quantity'}</span>
                   </div>
-                  <button className="btn-remove" onClick={() => removeRequest(r.name)}>✕</button>
+                  <button className="btn-remove" onClick={() => removeRequest(r.name)} aria-label={`Remove request for ${r.name}`}>✕</button>
                 </div>
               ))}
             </div>

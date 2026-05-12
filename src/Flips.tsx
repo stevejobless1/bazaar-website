@@ -551,7 +551,7 @@ const Flips: React.FC<FlipsProps> = ({ products, loading, error }) => {
                   </div>
                 </div>
               </div>
-              <button onClick={() => setSelectedFlip(null)} className="modal-close-btn">✕</button>
+              <button onClick={() => setSelectedFlip(null)} className="modal-close-btn" aria-label="Close modal">✕</button>
             </div>
             
             <div style={{ padding: '2rem', overflowY: 'auto', background: 'rgba(13, 17, 23, 0.4)', flex: 1 }}>
