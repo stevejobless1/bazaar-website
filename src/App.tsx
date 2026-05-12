@@ -19,20 +19,72 @@ const formatCompact = (n: number) => n.toLocaleString(undefined, { maximumFracti
 
 const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: () => void }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
   const navigate = useNavigate();
   const location = useLocation();
+  const searchRef = React.useRef<HTMLDivElement>(null);
+
+  const filteredProducts = React.useMemo(() => {
+    if (!searchTerm.trim()) return [];
+    const query = searchTerm.toLowerCase();
+    return products
+      .filter(p => p.productId.toLowerCase().includes(query))
+      .sort((a, b) => {
+        const aId = a.productId.toLowerCase();
+        const bId = b.productId.toLowerCase();
+        // Priority to exact matches or starts with
+        if (aId === query) return -1;
+        if (bId === query) return 1;
+        if (aId.startsWith(query) && !bId.startsWith(query)) return -1;
+        if (bId.startsWith(query) && !aId.startsWith(query)) return 1;
+        return aId.localeCompare(bId);
+      })
+      .slice(0, 10);
+  }, [searchTerm, products]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (searchTerm.trim()) {
+    if (activeIndex >= 0 && filteredProducts[activeIndex]) {
+      navigate(`/item/${filteredProducts[activeIndex].productId}`);
+      setSearchTerm('');
+      setShowDropdown(false);
+    } else if (searchTerm.trim()) {
       const match = products.find(p => p.productId.toLowerCase().includes(searchTerm.toLowerCase()));
       if (match) {
         navigate(`/item/${match.productId}`);
         setSearchTerm('');
+        setShowDropdown(false);
       } else {
         const cleanSearch = searchTerm.trim().toUpperCase().replace(/\s+/g, '_');
         navigate(`/item/${cleanSearch}`);
+        setSearchTerm('');
+        setShowDropdown(false);
       }
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev < filteredProducts.length - 1 ? prev + 1 : prev));
+      setShowDropdown(true);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIndex(prev => (prev > 0 ? prev - 1 : 0));
+    } else if (e.key === 'Escape') {
+      setShowDropdown(false);
+      setActiveIndex(-1);
     }
   };
 
@@ -68,16 +120,45 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
       </div>
       
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-        <form className="search-container" onSubmit={handleSearch}>
-          <Search className="search-icon" size={18} />
-          <input 
-            type="text" 
-            className="search-input" 
-            placeholder="Search items..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-        </form>
+        <div className="search-container" ref={searchRef}>
+          <form onSubmit={handleSearch}>
+            <Search className="search-icon" size={18} />
+            <input 
+              type="text" 
+              className="search-input" 
+              placeholder="Search items..."
+              value={searchTerm}
+              onChange={e => {
+                setSearchTerm(e.target.value);
+                setShowDropdown(true);
+                setActiveIndex(-1);
+              }}
+              onFocus={() => setShowDropdown(true)}
+              onKeyDown={handleKeyDown}
+            />
+          </form>
+
+          {showDropdown && filteredProducts.length > 0 && (
+            <div className="search-dropdown glass-panel">
+              {filteredProducts.map((p, index) => (
+                <button
+                  key={p.productId}
+                  className={`search-result-item ${index === activeIndex ? 'active' : ''}`}
+                  onClick={() => {
+                    navigate(`/item/${p.productId}`);
+                    setSearchTerm('');
+                    setShowDropdown(false);
+                  }}
+                  onMouseEnter={() => setActiveIndex(index)}
+                >
+                  <ItemIcon productId={p.productId} className="result-icon" />
+                  <span className="result-name">{p.productId.replace(/_/g, ' ')}</span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
         <button 
           onClick={onLogout}
           className="btn-icon" 

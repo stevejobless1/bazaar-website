@@ -51,6 +51,11 @@ interface StatusData {
   uptime: {
     serverStartedAt: number;
     uptimeMs: number;
+    lastHeartbeats: {
+      tracker: number | null;
+      api: number | null;
+      downsampler: number | null;
+    };
     history: {
       tracker: UptimePoint[];
       api: UptimePoint[];
@@ -316,7 +321,7 @@ const Status = () => {
                       <span className={`${svc.status}-text`}>{svc.status.toUpperCase()}</span>
                     )}
                     <span className="meta-divider">•</span>
-                    <span>{svc.responseTime ? `${svc.responseTime}ms` : 'No response'}</span>
+                    <span>{statusData && statusData.uptime.lastHeartbeats[svc.id] ? `Active ${formatTimeAgo(statusData.uptime.lastHeartbeats[svc.id])}` : 'No heartbeat'}</span>
                   </div>
                 </div>
                 <div className="service-actions">
@@ -395,7 +400,7 @@ const Status = () => {
             <div className="status-section">
               <h2 className="section-title"><Database size={20} /> Data Integrity</h2>
               <div className="glass-panel db-storage-panel">
-                <StorageGauge usedMB={statusData.database.sizeMB} estimatedMaxMB={1000} />
+                <StorageGauge usedMB={statusData.database.sizeMB} estimatedMaxMB={5000} />
 
                 <div className="db-meta-row">
                   <div className="db-meta">
@@ -483,7 +488,7 @@ const Status = () => {
                 <div className="performance-stats">
                   <div className="perf-item">
                     <span className="perf-label">Last Data Fetch</span>
-                    <span className="perf-value">{formatTimeAgo(statusData.timestamp)}</span>
+                    <span className="perf-value">{formatTimeAgo(statusData.database.tables.prices.newestTimestamp)}</span>
                   </div>
                   <div className="perf-item">
                     <span className="perf-label">API Version</span>
