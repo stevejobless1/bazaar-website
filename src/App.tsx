@@ -118,13 +118,13 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
           <Leaf size={18} />
           Greenhouse
         </Link>
-        <Link 
-          to="/jacobs" 
-          className={`nav-link ${location.pathname === '/jacobs' ? 'active' : ''}`}
-        >
-          <Calendar size={18} />
-          Contests
-        </Link>
+          <Link 
+            to="/jacobs" 
+            className={`nav-link ${location.pathname === '/jacobs' ? 'active' : ''}`}
+          >
+            <Calendar size={18} />
+            Jacob's
+          </Link>
       </div>
       
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
