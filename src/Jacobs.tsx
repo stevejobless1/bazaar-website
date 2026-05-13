@@ -73,10 +73,11 @@ const Jacobs: React.FC = () => {
     return contests.filter(c => c.timestamp > now);
   }, [contests, now]);
 
-  // Group contests by day
+  // Group ALL contests by day ONCE when API fetch happens (contests state changes),
+  // instead of every second when `now` ticks, since Intl date formatting is very slow.
   const groupedContests = useMemo(() => {
     const groups: Record<string, JacobsContest[]> = {};
-    upcomingContests.forEach(contest => {
+    contests.forEach(contest => {
       const date = new Date(contest.timestamp).toLocaleDateString(undefined, {
         weekday: 'long',
         month: 'short',
@@ -86,7 +87,7 @@ const Jacobs: React.FC = () => {
       groups[date].push(contest);
     });
     return groups;
-  }, [upcomingContests]);
+  }, [contests]);
 
   if (loading && contests.length === 0) {
     return <div className="loader-container"><div className="loader"></div></div>;
@@ -186,14 +187,19 @@ const Jacobs: React.FC = () => {
       )}
 
       <div className="upcoming-sections">
-        {Object.entries(groupedContests).map(([date, dayContests]) => (
-          <div key={date} className="day-group">
-            <h3 className="day-title">
-              <Calendar size={18} />
-              {date}
-            </h3>
-            <div className="contests-grid">
-              {dayContests.map((contest, idx) => (
+        {Object.entries(groupedContests).map(([date, dayContests]) => {
+          // Dynamically filter contests that have started
+          const validUpcoming = dayContests.filter(c => c.timestamp > now);
+          if (validUpcoming.length === 0) return null;
+
+          return (
+            <div key={date} className="day-group">
+              <h3 className="day-title">
+                <Calendar size={18} />
+                {date}
+              </h3>
+              <div className="contests-grid">
+                {validUpcoming.map((contest, idx) => (
                 <div key={contest.timestamp} className="contest-card glass-panel fade-in" style={{ animationDelay: `${idx * 0.05}s` }}>
                   <div className="card-left">
                     <div className="contest-time">
@@ -221,10 +227,11 @@ const Jacobs: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
