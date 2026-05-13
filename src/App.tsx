@@ -538,7 +538,7 @@ function App() {
         // Set a cookie that lasts for 30 days
         const d = new Date();
         d.setTime(d.getTime() + (30*24*60*60*1000));
-        document.cookie = `bt_auth=true; expires=${d.toUTCString()}; path=/; SameSite=Strict`;
+        document.cookie = `bt_auth=true; expires=${d.toUTCString()}; path=/; SameSite=Strict; Secure`;
         
         setIsAuthed(true);
         setLoginError(undefined);
@@ -552,7 +552,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('bt_auth');
-    document.cookie = "bt_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "bt_auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/; SameSite=Strict; Secure";
     setIsAuthed(false);
   };
 
