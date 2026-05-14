@@ -4,3 +4,6 @@
 ## 2024-05-24 - Optimize Jacob's contest grouping to avoid high-frequency date formatting
 **Learning:** `Intl` API date formatting inside a high-frequency `useMemo` dependency (like one ticking every second for countdowns) is very slow in JavaScript and causes main-thread blocking.
 **Action:** Move expensive grouping/formatting operations to run only on actual data updates (e.g., API fetches) and apply dynamic runtime filtering during rendering to filter out old state.
+## 2024-05-24 - Memoize mapped lists in React to improve tab switching performance
+**Learning:** If a component applies `map()` and complex sorts to raw data properties to generate derived lists for rendering tabs, re-creating those mapped data objects on every render cycle—especially during frequent state updates like tab switching—is very inefficient. It makes switching laggy.
+**Action:** Use `React.useMemo` backed by dependencies to ensure sorting and object mapping logic runs only when the source data (`products` in this case) actually changes, yielding O(1) performance for derived lists upon re-renders.
