@@ -51,9 +51,10 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
           <h3>ADD MUTATION REQUEST</h3>
           
           <div className="form-group">
-            <label>Select crop...</label>
+            <label htmlFor="crop-select">Select crop...</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <select 
+                id="crop-select"
                 className="select-field"
                 value={selectedCrop}
                 onChange={e => setSelectedCrop(e.target.value)}
@@ -66,14 +67,21 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
             </div>
           </div>
 
-          <div className="toggle-container" onClick={() => setMaxMode(!maxMode)}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={maxMode}
+            className="toggle-container"
+            onClick={() => setMaxMode(!maxMode)}
+            style={{ background: 'none', border: 'none', padding: 0, width: '100%', textAlign: 'left' }}
+          >
             <div className={`toggle-switch ${maxMode ? 'active' : ''}`}>
               <div className="toggle-knob"></div>
             </div>
             <span style={{ fontSize: '0.85rem', color: maxMode ? 'var(--accent-primary)' : 'var(--text-secondary)'}}>
               MAX Quantity
             </span>
-          </div>
+          </button>
 
           <button 
             className="btn btn-secondary" 
@@ -108,14 +116,21 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
 
         <div className="card">
           <h3>GRID CONTROLS</h3>
-          <div className="toggle-container" onClick={() => setBlockMode(!blockMode)}>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={blockMode}
+            className="toggle-container"
+            onClick={() => setBlockMode(!blockMode)}
+            style={{ background: 'none', border: 'none', padding: 0, width: '100%', textAlign: 'left' }}
+          >
             <div className={`toggle-switch ${blockMode ? 'active' : ''}`}>
               <div className="toggle-knob"></div>
             </div>
             <span style={{ fontSize: '0.85rem', color: blockMode ? 'var(--danger)' : 'var(--text-secondary)'}}>
               Block Slots Mode
             </span>
-          </div>
+          </button>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
             When enabled, clicking the grid will mark slots as blocked (obstacles).
           </p>
