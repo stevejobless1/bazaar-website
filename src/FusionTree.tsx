@@ -95,6 +95,8 @@ const FusionTree: React.FC<FusionTreeProps> = ({ targetId, quantity, fusionData,
         {hasChildren ? (
           <button 
             onClick={() => setIsExpanded(!isExpanded)} 
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Collapse recipe' : 'Expand recipe'}
             style={{ 
               background: 'none', 
               border: 'none', 
