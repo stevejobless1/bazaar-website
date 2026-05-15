@@ -197,19 +197,25 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'flips' | 'all'>('flips');
 
+  // ⚡ Bolt Optimization: Memoize the mapping computation to avoid O(N) recalculations on every render.
+  const enrichedProducts = React.useMemo(() => {
+    return products.map(p => {
+      const margin = p.margin;
+      const velocity = margin > 0 ? margin * Math.min(p.buyVolume, p.sellVolume) : 0;
+      const marginPct = (margin / p.buyPrice) * 100 || 0;
+      return { ...p, velocity, marginPct };
+    });
+  }, [products]);
+
+  // ⚡ Bolt Optimization: Memoize the array sort to avoid O(N log N) recalculations on every render.
+  const displayProducts = React.useMemo(() => {
+    return activeTab === 'flips'
+      ? [...enrichedProducts].sort((a, b) => b.velocity - a.velocity).slice(0, 100)
+      : [...enrichedProducts].sort((a, b) => b.sellVolume - a.sellVolume);
+  }, [enrichedProducts, activeTab]);
+
   if (loading) return <div className="loader-container"><div className="loader"></div></div>;
   if (error) return <div className="error-message">{error}</div>;
-
-  const enrichedProducts = products.map(p => {
-    const margin = p.margin;
-    const velocity = margin > 0 ? margin * Math.min(p.buyVolume, p.sellVolume) : 0;
-    const marginPct = (margin / p.buyPrice) * 100 || 0;
-    return { ...p, velocity, marginPct };
-  });
-
-  const displayProducts = activeTab === 'flips' 
-    ? [...enrichedProducts].sort((a, b) => b.velocity - a.velocity).slice(0, 100)
-    : [...enrichedProducts].sort((a, b) => b.sellVolume - a.sellVolume);
 
   return (
     <div className="main-content">
