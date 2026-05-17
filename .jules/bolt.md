@@ -4,3 +4,6 @@
 ## 2024-05-24 - Optimize Jacob's contest grouping to avoid high-frequency date formatting
 **Learning:** `Intl` API date formatting inside a high-frequency `useMemo` dependency (like one ticking every second for countdowns) is very slow in JavaScript and causes main-thread blocking.
 **Action:** Move expensive grouping/formatting operations to run only on actual data updates (e.g., API fetches) and apply dynamic runtime filtering during rendering to filter out old state.
+## 2024-05-24 - Memoize derived lists before early returns
+**Learning:** Derived lists from large datasets (e.g., `products` in `src/App.tsx`) that require mapping or sorting should be wrapped in `React.useMemo` to prevent expensive re-calculations (O(N log N)) on unrelated state changes (like tab switches). Crucially, these `useMemo` hooks must be placed unconditionally *before* early return statements to comply with React's Rules of Hooks.
+**Action:** Always memoize expensive mapping and sorting operations on large arrays, and ensure the hook calls are top-level and not conditional or after early returns.
