@@ -27,10 +27,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, error }) => {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="input-group">
-            <Lock className="input-icon" size={18} />
+            <Lock className="input-icon" size={18} aria-hidden="true" />
             <input
               type="password"
               placeholder="Enter Access Key..."
+              aria-label="Access Key"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoFocus
