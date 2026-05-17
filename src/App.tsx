@@ -129,12 +129,13 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
       
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '1rem' }}>
         <div className="search-container" ref={searchRef}>
-          <form onSubmit={handleSearch}>
-            <Search className="search-icon" size={18} />
+          <form onSubmit={handleSearch} role="search">
+            <Search className="search-icon" size={18} aria-hidden="true" />
             <input 
               type="text" 
               className="search-input" 
               placeholder="Search items..."
+              aria-label="Search items"
               value={searchTerm}
               onChange={e => {
                 setSearchTerm(e.target.value);

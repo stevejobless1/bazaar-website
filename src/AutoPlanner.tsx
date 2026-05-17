@@ -51,9 +51,10 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
           <h3>ADD MUTATION REQUEST</h3>
           
           <div className="form-group">
-            <label>Select crop...</label>
+            <label htmlFor="crop-select">Select crop...</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <select 
+                id="crop-select"
                 className="select-field"
                 value={selectedCrop}
                 onChange={e => setSelectedCrop(e.target.value)}
