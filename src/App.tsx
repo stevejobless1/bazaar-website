@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom';
 import { Search, Activity, TrendingUp, Radio, LogOut, Leaf, Calendar } from 'lucide-react';
 import { fetchLatest, fetchUnifiedHistory, fetchLiveOrders, fetchMayors, fetchVolumeHistory } from './api';
@@ -197,19 +197,24 @@ const Home = ({ products, loading, error }: { products: ProductState[], loading:
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'flips' | 'all'>('flips');
 
+  // ⚡ Bolt: Memoize expensive O(N) map and O(N log N) sort operations
+  // Placed unconditionally before early returns to comply with Rules of Hooks
+  // Prevents re-calculating when simply navigating back or on unrelated re-renders
+  const displayProducts = useMemo(() => {
+    const enrichedProducts = products.map(p => {
+      const margin = p.margin;
+      const velocity = margin > 0 ? margin * Math.min(p.buyVolume, p.sellVolume) : 0;
+      const marginPct = (margin / p.buyPrice) * 100 || 0;
+      return { ...p, velocity, marginPct };
+    });
+
+    return activeTab === 'flips'
+      ? enrichedProducts.sort((a, b) => b.velocity - a.velocity).slice(0, 100)
+      : enrichedProducts.sort((a, b) => b.sellVolume - a.sellVolume);
+  }, [products, activeTab]);
+
   if (loading) return <div className="loader-container"><div className="loader"></div></div>;
   if (error) return <div className="error-message">{error}</div>;
-
-  const enrichedProducts = products.map(p => {
-    const margin = p.margin;
-    const velocity = margin > 0 ? margin * Math.min(p.buyVolume, p.sellVolume) : 0;
-    const marginPct = (margin / p.buyPrice) * 100 || 0;
-    return { ...p, velocity, marginPct };
-  });
-
-  const displayProducts = activeTab === 'flips' 
-    ? [...enrichedProducts].sort((a, b) => b.velocity - a.velocity).slice(0, 100)
-    : [...enrichedProducts].sort((a, b) => b.sellVolume - a.sellVolume);
 
   return (
     <div className="main-content">
