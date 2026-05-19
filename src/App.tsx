@@ -44,14 +44,34 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
       .slice(0, 10);
   }, [searchTerm, products]);
 
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
         setShowDropdown(false);
       }
     };
+
+    const handleGlobalKeyDown = (event: KeyboardEvent) => {
+      // Don't focus if we're already typing in an input or textarea
+      if (
+        event.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        event.preventDefault();
+        inputRef.current?.focus();
+      }
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleGlobalKeyDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleGlobalKeyDown);
+    };
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
@@ -132,9 +152,11 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
           <form onSubmit={handleSearch}>
             <Search className="search-icon" size={18} />
             <input 
+              ref={inputRef}
               type="text" 
               className="search-input" 
               placeholder="Search items..."
+              aria-label="Search items"
               value={searchTerm}
               onChange={e => {
                 setSearchTerm(e.target.value);
@@ -143,26 +165,54 @@ const Navbar = ({ products, onLogout }: { products: ProductState[], onLogout: ()
               }}
               onFocus={() => setShowDropdown(true)}
               onKeyDown={handleKeyDown}
+              style={{ paddingRight: '2.5rem' }}
             />
+            {!searchTerm && (
+              <div
+                aria-hidden="true"
+                style={{
+                  position: 'absolute',
+                  right: '12px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  color: 'var(--text-secondary)',
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  fontSize: '0.7rem',
+                  fontWeight: '600',
+                  pointerEvents: 'none',
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}
+              >
+                /
+              </div>
+            )}
           </form>
 
-          {showDropdown && filteredProducts.length > 0 && (
+          {showDropdown && searchTerm.trim() && (
             <div className="search-dropdown glass-panel">
-              {filteredProducts.map((p, index) => (
-                <button
-                  key={p.productId}
-                  className={`search-result-item ${index === activeIndex ? 'active' : ''}`}
-                  onClick={() => {
-                    navigate(`/item/${p.productId}`);
-                    setSearchTerm('');
-                    setShowDropdown(false);
-                  }}
-                  onMouseEnter={() => setActiveIndex(index)}
-                >
-                  <ItemIcon productId={p.productId} className="result-icon" />
-                  <span className="result-name">{p.productId.replace(/_/g, ' ')}</span>
-                </button>
-              ))}
+              {filteredProducts.length === 0 ? (
+                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                  No items found matching "{searchTerm}"
+                </div>
+              ) : (
+                filteredProducts.map((p, index) => (
+                  <button
+                    key={p.productId}
+                    className={`search-result-item ${index === activeIndex ? 'active' : ''}`}
+                    onClick={() => {
+                      navigate(`/item/${p.productId}`);
+                      setSearchTerm('');
+                      setShowDropdown(false);
+                    }}
+                    onMouseEnter={() => setActiveIndex(index)}
+                  >
+                    <ItemIcon productId={p.productId} className="result-icon" />
+                    <span className="result-name">{p.productId.replace(/_/g, ' ')}</span>
+                  </button>
+                ))
+              )}
             </div>
           )}
         </div>
