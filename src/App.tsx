@@ -508,7 +508,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   
   const [isAuthed, setIsAuthed] = useState<boolean>(() => {
-    return localStorage.getItem('bt_auth') === 'true' || document.cookie.includes('bt_auth=true');
+    return localStorage.getItem('bt_auth') === 'true' || /(^|;\s*)bt_auth=true(;\s*|$)/.test(document.cookie);
   });
   const [loginError, setLoginError] = useState<string | undefined>();
 
