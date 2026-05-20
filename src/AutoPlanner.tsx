@@ -51,9 +51,10 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
           <h3>ADD MUTATION REQUEST</h3>
           
           <div className="form-group">
-            <label>Select crop...</label>
+            <label htmlFor="crop-select">Select crop...</label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <select 
+                id="crop-select"
                 className="select-field"
                 value={selectedCrop}
                 onChange={e => setSelectedCrop(e.target.value)}
@@ -66,7 +67,19 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
             </div>
           </div>
 
-          <div className="toggle-container" onClick={() => setMaxMode(!maxMode)}>
+          <div
+            className="toggle-container"
+            onClick={() => setMaxMode(!maxMode)}
+            role="switch"
+            aria-checked={maxMode}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setMaxMode(!maxMode);
+              }
+            }}
+          >
             <div className={`toggle-switch ${maxMode ? 'active' : ''}`}>
               <div className="toggle-knob"></div>
             </div>
@@ -108,7 +121,19 @@ export default function AutoPlanner({ requests, setRequests, onGenerate, isSolvi
 
         <div className="card">
           <h3>GRID CONTROLS</h3>
-          <div className="toggle-container" onClick={() => setBlockMode(!blockMode)}>
+          <div
+            className="toggle-container"
+            onClick={() => setBlockMode(!blockMode)}
+            role="switch"
+            aria-checked={blockMode}
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setBlockMode(!blockMode);
+              }
+            }}
+          >
             <div className={`toggle-switch ${blockMode ? 'active' : ''}`}>
               <div className="toggle-knob"></div>
             </div>

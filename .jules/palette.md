@@ -1,0 +1,3 @@
+## 2024-05-24 - Interactive Div Accessibility
+**Learning:** This app heavily uses custom `div`-based interactive elements instead of native inputs (like `checkbox` or `button`). These elements miss crucial `role`, `aria-checked`/`aria-expanded`, and `tabIndex` bindings by default, and lack keyboard event handlers (`onKeyDown`), severely hurting keyboard and screen reader accessibility.
+**Action:** When working on interaction enhancements, audit custom interactive `div` elements (e.g. `.toggle-container`) for missing accessibility semantics (`role`, `tabIndex`, ARIA states) and ensure they can be activated with Enter/Space via `onKeyDown`.
